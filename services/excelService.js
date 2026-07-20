@@ -33,7 +33,7 @@ function countNonEmptyCells(row) {
 }
 
 function normalizeHeader(value, originalIndex, usedHeaders) {
-  const rawName = isEmptyCell(value) ? `عمود ${originalIndex + 1}` : normalizeWhitespace(value);
+  const rawName = isEmptyCell(value) ? `Column ${originalIndex + 1}` : normalizeWhitespace(value);
   let candidate = rawName;
   let counter = 2;
 
@@ -296,7 +296,7 @@ function parseWorkbook(buffer, originalName) {
   });
 
   if (!workbook.SheetNames.length) {
-    const error = new Error('ملف Excel لا يحتوي على أوراق عمل.');
+    const error = new Error('The Excel file does not contain any worksheets.');
     error.statusCode = 400;
     throw error;
   }

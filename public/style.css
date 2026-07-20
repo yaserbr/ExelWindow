@@ -186,7 +186,7 @@ button:disabled {
 
 .summary-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 14px;
   margin-bottom: 16px;
 }
@@ -214,6 +214,10 @@ button:disabled {
   margin-bottom: 16px;
 }
 
+.sheet-panel {
+  overflow: hidden;
+}
+
 .section-heading,
 .table-toolbar,
 .modal-header,
@@ -231,6 +235,49 @@ button:disabled {
   flex-wrap: wrap;
   gap: 8px;
   margin-top: 14px;
+}
+
+.sheet-tabs {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.sheet-tab {
+  min-width: 180px;
+  max-width: 250px;
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #f8fafc;
+  color: var(--text);
+  padding: 10px 12px;
+  text-align: left;
+  white-space: normal;
+}
+
+.sheet-tab:hover,
+.sheet-tab.active {
+  border-color: rgba(18, 100, 216, 0.4);
+  background: var(--surface-soft);
+}
+
+.sheet-tab.active {
+  box-shadow: inset 0 0 0 2px rgba(18, 100, 216, 0.16);
+}
+
+.sheet-tab-title {
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.sheet-tab-meta {
+  color: var(--muted);
+  font-size: 0.82rem;
 }
 
 .column-chip,
@@ -283,6 +330,31 @@ button:disabled {
 .stat-list strong {
   display: block;
   overflow-wrap: anywhere;
+}
+
+.top-values {
+  display: grid;
+  gap: 8px;
+}
+
+.value-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 9px 10px;
+}
+
+.value-row strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.value-row span {
+  color: var(--primary-dark);
+  font-weight: 800;
 }
 
 .chart-card canvas {
@@ -340,7 +412,7 @@ th,
 td {
   border-bottom: 1px solid var(--line);
   padding: 12px;
-  text-align: right;
+  text-align: left;
   vertical-align: top;
   overflow-wrap: anywhere;
 }
@@ -366,7 +438,7 @@ tr:last-child td {
   background: transparent;
   color: var(--text);
   padding: 0;
-  text-align: right;
+  text-align: left;
   font-weight: 800;
 }
 
@@ -442,6 +514,10 @@ tr:last-child td {
   .stats-grid,
   .charts-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .sheet-tab {
+    min-width: 160px;
   }
 }
 

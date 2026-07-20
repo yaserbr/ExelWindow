@@ -1,5 +1,6 @@
 const state = {
   statistics: null,
+  activeSheet: '',
   columns: [],
   page: 1,
   limit: 20,
@@ -16,9 +17,12 @@ const elements = {
   emptyState: document.getElementById('emptyState'),
   dashboardContent: document.getElementById('dashboardContent'),
   summaryCards: document.getElementById('summaryCards'),
+  sheetTabs: document.getElementById('sheetTabs'),
+  activeSheetMeta: document.getElementById('activeSheetMeta'),
   columnsList: document.getElementById('columnsList'),
   blankValues: document.getElementById('blankValues'),
   numericStats: document.getElementById('numericStats'),
+  textStats: document.getElementById('textStats'),
   dateStatsPanel: document.getElementById('dateStatsPanel'),
   dateStats: document.getElementById('dateStats'),
   chartsPanel: document.getElementById('chartsPanel'),
@@ -33,7 +37,6 @@ const elements = {
   openUploadModal: document.getElementById('openUploadModal'),
   uploadModal: document.getElementById('uploadModal'),
   uploadForm: document.getElementById('uploadForm'),
-  adminPassword: document.getElementById('adminPassword'),
   excelFile: document.getElementById('excelFile'),
   uploadStatus: document.getElementById('uploadStatus'),
   uploadButton: document.getElementById('uploadButton')
@@ -55,23 +58,23 @@ function formatNumber(value) {
     return '-';
   }
 
-  return new Intl.NumberFormat('ar-SA', {
+  return new Intl.NumberFormat('en-US', {
     maximumFractionDigits: 2
   }).format(value);
 }
 
 function formatDateTime(value) {
   if (!value) {
-    return 'لا توجد بيانات';
+    return 'No data yet';
   }
 
   const dateValue = new Date(value);
 
   if (Number.isNaN(dateValue.getTime())) {
-    return 'تاريخ غير معروف';
+    return 'Unknown date';
   }
 
-  return new Intl.DateTimeFormat('ar-SA', {
+  return new Intl.DateTimeFormat('en-US', {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(dateValue);
@@ -83,7 +86,7 @@ function formatCell(value) {
   }
 
   if (typeof value === 'boolean') {
-    return value ? 'نعم' : 'لا';
+    return value ? 'Yes' : 'No';
   }
 
   return String(value);
@@ -116,12 +119,26 @@ function setMainLoading(isLoading) {
   elements.loadingState.classList.toggle('hidden', !isLoading);
 }
 
-function renderSummary(statistics) {
+function getActiveSheetStats() {
+  if (!state.statistics?.sheets?.length) {
+    return null;
+  }
+
+  return (
+    state.statistics.sheets.find((sheet) => sheet.sheetName === state.activeSheet) ||
+    state.statistics.sheets.find((sheet) => sheet.fileInfo.rowCount > 0) ||
+    state.statistics.sheets[0]
+  );
+}
+
+function renderSummary(workbookStatistics, sheetStatistics) {
   const cards = [
-    ['إجمالي الصفوف', statistics.fileInfo.rowCount],
-    ['إجمالي الأعمدة', statistics.fileInfo.columnCount],
-    ['الأعمدة الرقمية', statistics.columnTypes.numeric.length],
-    ['الأعمدة النصية', statistics.columnTypes.text.length]
+    ['Sheets', workbookStatistics.fileInfo.sheetCount],
+    ['Total rows', workbookStatistics.fileInfo.totalRows],
+    ['Current sheet rows', sheetStatistics.fileInfo.rowCount],
+    ['Current sheet columns', sheetStatistics.fileInfo.columnCount],
+    ['Numeric columns', sheetStatistics.columnTypes.numeric.length],
+    ['Text columns', sheetStatistics.columnTypes.text.length]
   ];
 
   clearElement(elements.summaryCards);
@@ -135,16 +152,54 @@ function renderSummary(statistics) {
   });
 }
 
+function renderSheetTabs(workbookStatistics) {
+  clearElement(elements.sheetTabs);
+
+  workbookStatistics.fileInfo.sheets.forEach((sheet) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = `sheet-tab${sheet.name === state.activeSheet ? ' active' : ''}`;
+    button.dataset.sheet = sheet.name;
+    button.setAttribute('role', 'tab');
+    button.setAttribute('aria-selected', sheet.name === state.activeSheet ? 'true' : 'false');
+
+    const title = createTextElement('span', 'sheet-tab-title', sheet.name);
+    const meta = createTextElement(
+      'span',
+      'sheet-tab-meta',
+      `${formatNumber(sheet.rowCount)} rows - ${formatNumber(sheet.columnCount)} columns`
+    );
+
+    button.append(title, meta);
+    elements.sheetTabs.append(button);
+  });
+}
+
+function renderActiveSheetMeta(sheetStatistics) {
+  const headerText = sheetStatistics.headerRowNumber
+    ? `Excel header row: ${formatNumber(sheetStatistics.headerRowNumber)}`
+    : 'No clear header row found';
+
+  elements.activeSheetMeta.textContent =
+    `${sheetStatistics.sheetName} - ${formatNumber(sheetStatistics.fileInfo.rowCount)} rows, ` +
+    `${formatNumber(sheetStatistics.fileInfo.columnCount)} columns. ${headerText}`;
+}
+
 function renderColumns(statistics) {
   clearElement(elements.columnsList);
   clearElement(elements.blankValues);
+
+  if (!statistics.columnTypes.all.length) {
+    elements.columnsList.append(createTextElement('p', 'muted-text', 'This sheet has no columns.'));
+    return;
+  }
 
   statistics.columnTypes.all.forEach((column) => {
     elements.columnsList.append(createTextElement('span', 'column-chip', column));
   });
 
   Object.entries(statistics.columnTypes.details).forEach(([column, details]) => {
-    const chip = createTextElement('span', 'blank-chip', `${column}: ${formatNumber(details.emptyCount)} قيمة فارغة`);
+    const chip = createTextElement('span', 'blank-chip', `${column}: ${formatNumber(details.emptyCount)} blank values`);
     elements.blankValues.append(chip);
   });
 }
@@ -155,7 +210,7 @@ function renderNumericStats(numericStats) {
   const entries = Object.entries(numericStats);
 
   if (entries.length === 0) {
-    elements.numericStats.append(createTextElement('p', 'muted-text', 'لا توجد أعمدة رقمية في البيانات الحالية.'));
+    elements.numericStats.append(createTextElement('p', 'muted-text', 'This sheet has no numeric columns.'));
     return;
   }
 
@@ -168,11 +223,11 @@ function renderNumericStats(numericStats) {
     list.className = 'stat-list';
 
     [
-      ['المجموع', stats.sum],
-      ['المتوسط', stats.average],
-      ['أعلى قيمة', stats.max],
-      ['أقل قيمة', stats.min],
-      ['عدد القيم الرقمية', stats.count]
+      ['Total', stats.sum],
+      ['Average', stats.average],
+      ['Maximum', stats.max],
+      ['Minimum', stats.min],
+      ['Numeric values', stats.count]
     ].forEach(([label, value]) => {
       const item = document.createElement('div');
       item.append(createTextElement('span', '', label));
@@ -182,6 +237,42 @@ function renderNumericStats(numericStats) {
 
     card.append(list);
     elements.numericStats.append(card);
+  });
+}
+
+function renderTextStats(textStats) {
+  clearElement(elements.textStats);
+
+  const entries = Object.entries(textStats);
+
+  if (entries.length === 0) {
+    elements.textStats.append(createTextElement('p', 'muted-text', 'This sheet has no text columns.'));
+    return;
+  }
+
+  entries.forEach(([column, stats]) => {
+    const card = document.createElement('article');
+    card.className = 'stat-card';
+    card.append(createTextElement('h3', '', column));
+
+    const list = document.createElement('div');
+    list.className = 'top-values';
+    list.append(createTextElement('span', '', `Unique values: ${formatNumber(stats.uniqueCount)}`));
+
+    if (stats.topValues.length === 0) {
+      list.append(createTextElement('p', 'muted-text', 'No text values found.'));
+    } else {
+      stats.topValues.forEach((item) => {
+        const row = document.createElement('div');
+        row.className = 'value-row';
+        row.append(createTextElement('strong', '', item.value));
+        row.append(createTextElement('span', '', formatNumber(item.count)));
+        list.append(row);
+      });
+    }
+
+    card.append(list);
+    elements.textStats.append(card);
   });
 }
 
@@ -200,10 +291,10 @@ function renderDateStats(dateStats) {
     list.className = 'stat-list';
 
     [
-      ['أقدم تاريخ', formatDateTime(stats.oldest)],
-      ['أحدث تاريخ', formatDateTime(stats.latest)],
-      ['عدد السجلات', formatNumber(stats.count)],
-      ['عدد الشهور', formatNumber(Object.keys(stats.monthlyCounts || {}).length)]
+      ['Oldest date', formatDateTime(stats.oldest)],
+      ['Latest date', formatDateTime(stats.latest)],
+      ['Date records', formatNumber(stats.count)],
+      ['Months', formatNumber(Object.keys(stats.monthlyCounts || {}).length)]
     ].forEach(([label, value]) => {
       const item = document.createElement('div');
       item.append(createTextElement('span', '', label));
@@ -276,7 +367,7 @@ function renderCharts(charts) {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        locale: 'ar-SA',
+        locale: 'en-US',
         plugins: {
           legend: {
             position: 'bottom',
@@ -346,7 +437,7 @@ function renderTableRows(rows, columns) {
     const row = document.createElement('tr');
     const cell = document.createElement('td');
     cell.colSpan = Math.max(columns.length, 1);
-    cell.textContent = 'لا توجد نتائج مطابقة.';
+    cell.textContent = 'No matching rows found in this sheet.';
     row.append(cell);
     elements.tableBody.append(row);
     return;
@@ -366,14 +457,15 @@ function renderTableRows(rows, columns) {
 }
 
 function renderPagination(pagination) {
-  elements.pageInfo.textContent = `صفحة ${formatNumber(pagination.page)} من ${formatNumber(pagination.totalPages)}`;
+  elements.pageInfo.textContent = `Page ${formatNumber(pagination.page)} of ${formatNumber(pagination.totalPages)}`;
   elements.prevPage.disabled = pagination.page <= 1;
   elements.nextPage.disabled = pagination.page >= pagination.totalPages;
-  elements.tableCount.textContent = `${formatNumber(pagination.totalRows)} صف مطابق`;
+  elements.tableCount.textContent = `${formatNumber(pagination.totalRows)} matching rows`;
 }
 
 async function loadTable(page = state.page) {
   const params = new URLSearchParams({
+    sheet: state.activeSheet,
     page: String(page),
     limit: String(state.limit),
     search: state.search,
@@ -384,7 +476,7 @@ async function loadTable(page = state.page) {
   const response = await fetch(`/api/data?${params.toString()}`);
 
   if (!response.ok) {
-    throw new Error('تعذر تحميل بيانات الجدول.');
+    throw new Error('Could not load table data.');
   }
 
   const payload = await response.json();
@@ -396,6 +488,27 @@ async function loadTable(page = state.page) {
   renderPagination(payload.pagination);
 }
 
+async function renderActiveSheet() {
+  const sheetStatistics = getActiveSheetStats();
+
+  if (!sheetStatistics) {
+    elements.emptyState.classList.remove('hidden');
+    elements.dashboardContent.classList.add('hidden');
+    return;
+  }
+
+  state.activeSheet = sheetStatistics.sheetName;
+  renderSummary(state.statistics, sheetStatistics);
+  renderSheetTabs(state.statistics);
+  renderActiveSheetMeta(sheetStatistics);
+  renderColumns(sheetStatistics);
+  renderNumericStats(sheetStatistics.numericStats);
+  renderTextStats(sheetStatistics.textStats);
+  renderDateStats(sheetStatistics.dateStats);
+  renderCharts(sheetStatistics.chartData);
+  await loadTable(1);
+}
+
 async function loadDashboard() {
   setMainLoading(true);
   elements.emptyState.classList.add('hidden');
@@ -405,46 +518,53 @@ async function loadDashboard() {
     const response = await fetch('/api/statistics');
 
     if (!response.ok) {
-      throw new Error('تعذر تحميل الإحصائيات.');
+      throw new Error('Could not load statistics.');
     }
 
     const statistics = await response.json();
     state.statistics = statistics;
-    elements.lastUpdate.textContent = `آخر تحديث: ${formatDateTime(statistics.updatedAt)}`;
+    elements.lastUpdate.textContent = `Last update: ${formatDateTime(statistics.updatedAt)}`;
 
-    if (!statistics.fileInfo.rowCount || statistics.fileInfo.columnCount === 0) {
+    if (!statistics.fileInfo.sheetCount || !statistics.sheets.length) {
       elements.emptyState.classList.remove('hidden');
       return;
     }
 
-    renderSummary(statistics);
-    renderColumns(statistics);
-    renderNumericStats(statistics.numericStats);
-    renderDateStats(statistics.dateStats);
-    renderCharts(statistics.chartData);
-    await loadTable(1);
+    if (!statistics.sheets.some((sheet) => sheet.sheetName === state.activeSheet)) {
+      state.activeSheet =
+        statistics.sheets.find((sheet) => sheet.fileInfo.rowCount > 0)?.sheetName || statistics.sheets[0].sheetName;
+    }
 
+    await renderActiveSheet();
     elements.dashboardContent.classList.remove('hidden');
   } catch (error) {
-    setMessage(error.message || 'حدث خطأ أثناء تحميل الصفحة.', 'error');
+    setMessage(error.message || 'An error occurred while loading the dashboard.', 'error');
     elements.emptyState.classList.remove('hidden');
   } finally {
     setMainLoading(false);
   }
 }
 
+function resetTableState() {
+  state.page = 1;
+  state.search = '';
+  state.sortBy = '';
+  state.sortDir = 'asc';
+  elements.tableSearch.value = '';
+}
+
 function openUploadModal() {
   elements.uploadModal.classList.remove('hidden');
   elements.uploadStatus.textContent = '';
   elements.uploadStatus.className = 'upload-status';
-  elements.adminPassword.focus();
+  elements.excelFile.focus();
 }
 
 function closeUploadModal() {
   elements.uploadModal.classList.add('hidden');
   elements.uploadForm.reset();
   elements.uploadButton.disabled = false;
-  elements.uploadButton.textContent = 'رفع الملف';
+  elements.uploadButton.textContent = 'Upload and Replace';
 }
 
 function setUploadStatus(text, type) {
@@ -456,16 +576,15 @@ async function handleUpload(event) {
   event.preventDefault();
 
   const file = elements.excelFile.files[0];
-  const password = elements.adminPassword.value;
 
   if (!file) {
-    setUploadStatus('يرجى اختيار ملف Excel.', 'error');
+    setUploadStatus('Please choose an Excel file.', 'error');
     return;
   }
 
   const extension = file.name.split('.').pop().toLowerCase();
   if (!['xlsx', 'xls'].includes(extension)) {
-    setUploadStatus('صيغة الملف غير مسموحة.', 'error');
+    setUploadStatus('This file extension is not allowed.', 'error');
     return;
   }
 
@@ -473,37 +592,35 @@ async function handleUpload(event) {
   formData.append('excelFile', file);
 
   elements.uploadButton.disabled = true;
-  elements.uploadButton.textContent = 'جاري الرفع...';
-  setUploadStatus('جاري رفع الملف وتحليل البيانات...', '');
+  elements.uploadButton.textContent = 'Uploading...';
+  setUploadStatus('Uploading and analyzing all sheets...', '');
 
   try {
     const response = await fetch('/api/upload', {
       method: 'POST',
-      headers: {
-        'x-admin-password': password
-      },
       body: formData
     });
 
     const payload = await response.json();
 
     if (!response.ok) {
-      throw new Error(payload.message || 'تعذر رفع الملف.');
+      throw new Error(payload.message || 'Could not upload the file.');
     }
 
     setUploadStatus(payload.message, 'success');
-    setMessage(`${payload.message} تمت قراءة ${formatNumber(payload.rowCount)} صف.`, 'success');
-    state.search = '';
-    state.sortBy = '';
-    state.sortDir = 'asc';
-    elements.tableSearch.value = '';
+    setMessage(
+      `${payload.message} ${formatNumber(payload.sheetCount)} sheets and ${formatNumber(payload.rowCount)} rows loaded.`,
+      'success'
+    );
+    state.activeSheet = '';
+    resetTableState();
     await loadDashboard();
     closeUploadModal();
   } catch (error) {
-    setUploadStatus(error.message || 'حدث خطأ أثناء رفع الملف.', 'error');
+    setUploadStatus(error.message || 'An error occurred while uploading the file.', 'error');
   } finally {
     elements.uploadButton.disabled = false;
-    elements.uploadButton.textContent = 'رفع الملف';
+    elements.uploadButton.textContent = 'Upload and Replace';
   }
 }
 
@@ -527,6 +644,22 @@ function bindEvents() {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && !elements.uploadModal.classList.contains('hidden')) {
       closeUploadModal();
+    }
+  });
+
+  elements.sheetTabs.addEventListener('click', async (event) => {
+    const button = event.target.closest('.sheet-tab');
+    if (!button || button.dataset.sheet === state.activeSheet) {
+      return;
+    }
+
+    state.activeSheet = button.dataset.sheet;
+    resetTableState();
+
+    try {
+      await renderActiveSheet();
+    } catch (error) {
+      setMessage(error.message, 'error');
     }
   });
 

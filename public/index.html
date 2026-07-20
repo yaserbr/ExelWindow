@@ -1,20 +1,20 @@
 <!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>لوحة إحصائيات Excel</title>
+  <title>Excel Statistics Dashboard</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="page-header">
       <div>
-        <span class="eyebrow">لوحة عامة</span>
-        <h1>لوحة إحصائيات Excel</h1>
-        <p id="lastUpdate" class="last-update">آخر تحديث: لا توجد بيانات</p>
+        <span class="eyebrow">Public dashboard</span>
+        <h1>Excel Statistics Dashboard</h1>
+        <p id="lastUpdate" class="last-update">Last update: no data yet</p>
       </div>
-      <button id="openUploadModal" class="admin-button" type="button">تحديث البيانات</button>
+      <button id="openUploadModal" class="admin-button" type="button">Upload New Excel</button>
     </header>
 
     <div id="messageBox" class="message-box" role="status" aria-live="polite"></div>
@@ -22,20 +22,30 @@
     <main>
       <section id="loadingState" class="state-panel">
         <div class="loader"></div>
-        <p>جاري تحميل البيانات...</p>
+        <p>Loading data...</p>
       </section>
 
       <section id="emptyState" class="state-panel hidden">
-        <h2>لا توجد بيانات بعد</h2>
-        <p>ستظهر الإحصائيات هنا بعد رفع ملف Excel.</p>
+        <h2>No data yet</h2>
+        <p>Upload an Excel file to generate statistics, charts, and tables.</p>
       </section>
 
       <div id="dashboardContent" class="hidden">
-        <section id="summaryCards" class="summary-grid" aria-label="ملخص البيانات"></section>
+        <section id="summaryCards" class="summary-grid" aria-label="Data summary"></section>
+
+        <section class="panel sheet-panel">
+          <div class="section-heading">
+            <div>
+              <h2>Sheets</h2>
+              <p id="activeSheetMeta" class="muted-text"></p>
+            </div>
+          </div>
+          <div id="sheetTabs" class="sheet-tabs" role="tablist" aria-label="Excel sheets"></div>
+        </section>
 
         <section class="panel">
           <div class="section-heading">
-            <h2>الأعمدة</h2>
+            <h2>Columns</h2>
           </div>
           <div id="columnsList" class="columns-list"></div>
           <div id="blankValues" class="blank-values"></div>
@@ -43,21 +53,28 @@
 
         <section class="panel">
           <div class="section-heading">
-            <h2>إحصائيات الأعمدة الرقمية</h2>
+            <h2>Numeric Statistics</h2>
           </div>
           <div id="numericStats" class="stats-grid"></div>
         </section>
 
+        <section class="panel">
+          <div class="section-heading">
+            <h2>Text Statistics</h2>
+          </div>
+          <div id="textStats" class="stats-grid"></div>
+        </section>
+
         <section id="dateStatsPanel" class="panel">
           <div class="section-heading">
-            <h2>إحصائيات التواريخ</h2>
+            <h2>Date Statistics</h2>
           </div>
           <div id="dateStats" class="stats-grid"></div>
         </section>
 
         <section id="chartsPanel" class="panel">
           <div class="section-heading">
-            <h2>الرسوم البيانية</h2>
+            <h2>Charts</h2>
           </div>
           <div id="chartsGrid" class="charts-grid"></div>
         </section>
@@ -65,12 +82,12 @@
         <section class="panel table-panel">
           <div class="table-toolbar">
             <div>
-              <h2>جدول البيانات</h2>
+              <h2>Data Table</h2>
               <p id="tableCount" class="muted-text"></p>
             </div>
             <label class="search-box">
-              <span>بحث</span>
-              <input id="tableSearch" type="search" placeholder="ابحث داخل الجدول">
+              <span>Search</span>
+              <input id="tableSearch" type="search" placeholder="Search this sheet">
             </label>
           </div>
 
@@ -82,9 +99,9 @@
           </div>
 
           <div class="pagination">
-            <button id="nextPage" type="button">التالي</button>
+            <button id="prevPage" type="button">Previous</button>
             <span id="pageInfo"></span>
-            <button id="prevPage" type="button">السابق</button>
+            <button id="nextPage" type="button">Next</button>
           </div>
         </section>
       </div>
@@ -95,25 +112,22 @@
     <div class="modal-backdrop" data-close-modal></div>
     <form id="uploadForm" class="modal-card">
       <div class="modal-header">
-        <h2 id="uploadTitle">تحديث البيانات</h2>
-        <button class="close-button" type="button" aria-label="إغلاق" data-close-modal>×</button>
+        <h2 id="uploadTitle">Upload New Excel</h2>
+        <button class="close-button" type="button" aria-label="Close" data-close-modal>×</button>
       </div>
 
       <label>
-        <span>كلمة مرور الأدمن</span>
-        <input id="adminPassword" type="password" autocomplete="current-password" required>
-      </label>
-
-      <label>
-        <span>ملف Excel</span>
+        <span>Excel file</span>
         <input id="excelFile" type="file" accept=".xlsx,.xls" required>
       </label>
+
+      <p class="muted-text">Uploading a new Excel file will overwrite the current data.</p>
 
       <div id="uploadStatus" class="upload-status" role="status" aria-live="polite"></div>
 
       <div class="modal-actions">
-        <button class="secondary-button" type="button" data-close-modal>إلغاء</button>
-        <button id="uploadButton" class="primary-button" type="submit">رفع الملف</button>
+        <button class="secondary-button" type="button" data-close-modal>Cancel</button>
+        <button id="uploadButton" class="primary-button" type="submit">Upload and Replace</button>
       </div>
     </form>
   </div>

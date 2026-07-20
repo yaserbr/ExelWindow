@@ -146,7 +146,7 @@ function formatCellValue(value) {
   }
 
   if (typeof value === 'boolean') {
-    return value ? 'نعم' : 'لا';
+    return value ? 'Yes' : 'No';
   }
 
   return String(value).trim();
@@ -243,7 +243,7 @@ function buildTextStatistics(rows, textColumns) {
         return b[1] - a[1];
       }
 
-      return a[0].localeCompare(b[0], 'ar');
+      return a[0].localeCompare(b[0], 'en');
     });
 
     stats[column] = {
@@ -319,7 +319,7 @@ function buildLineChart(rows, dateColumn, numericColumn) {
   return {
     id: `line-${dateColumn}-${numericColumn}`,
     type: 'line',
-    title: `${numericColumn} حسب ${dateColumn}`,
+    title: `${numericColumn} by ${dateColumn}`,
     labels: entries.map(([month]) => month),
     datasets: [
       {
@@ -340,11 +340,11 @@ function buildNumericSummaryChart(numericStats) {
   return {
     id: 'numeric-sums',
     type: 'bar',
-    title: 'مجاميع الأعمدة الرقمية',
+    title: 'Numeric Column Totals',
     labels: entries.map(([column]) => column),
     datasets: [
       {
-        label: 'المجموع',
+        label: 'Total',
         data: entries.map(([, stat]) => stat.sum || 0)
       }
     ]
@@ -361,7 +361,7 @@ function buildTextChart(column, stat) {
   return {
     id: `text-${column}`,
     type: chartType,
-    title: `توزيع ${column}`,
+    title: `${column} Distribution`,
     labels: stat.topValues.map((item) => truncateLabel(item.value)),
     datasets: [
       {
@@ -467,7 +467,7 @@ function compareCellValues(a, b) {
     return aDate.getTime() - bDate.getTime();
   }
 
-  return formatCellValue(a).localeCompare(formatCellValue(b), 'ar', {
+  return formatCellValue(a).localeCompare(formatCellValue(b), 'en', {
     numeric: true,
     sensitivity: 'base'
   });

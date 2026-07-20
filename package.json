@@ -1,7 +1,7 @@
 {
   "name": "excel-dashboard",
   "version": "1.0.0",
-  "description": "لوحة عربية بسيطة لعرض إحصائيات مستخرجة من ملفات Excel باستخدام Node.js وExpress.",
+  "description": "A simple Excel statistics dashboard built with Node.js and Express.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -17,7 +17,7 @@
   "license": "MIT",
   "dependencies": {
     "chart.js": "^4.4.9",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "express-rate-limit": "^7.5.0",
     "helmet": "^8.0.0",

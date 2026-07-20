@@ -5,7 +5,6 @@ const express = require('express');
 const helmet = require('helmet');
 const multer = require('multer');
 const rateLimit = require('express-rate-limit');
-const adminAuth = require('./middleware/adminAuth');
 const { ensureDataFile, loadStoredData, replaceDataFromExcel } = require('./services/excelService');
 const { buildStatistics, compareCellValues, formatCellValue } = require('./services/statisticsService');
 
@@ -54,7 +53,7 @@ const uploadLimiter = rateLimit({
   standardHeaders: 'draft-7',
   legacyHeaders: false,
   message: {
-    message: 'تم تجاوز عدد محاولات رفع الملفات. حاول مرة أخرى بعد قليل.'
+    message: 'Too many upload attempts. Please try again later.'
   }
 });
 
@@ -68,11 +67,11 @@ const upload = multer({
     const extension = path.extname(file.originalname).toLowerCase();
 
     if (!allowedExtensions.has(extension)) {
-      return callback(new Error('يسمح برفع ملفات Excel فقط بصيغة .xlsx أو .xls.'));
+      return callback(new Error('Only .xlsx and .xls Excel files are allowed.'));
     }
 
     if (!allowedMimeTypes.has(file.mimetype)) {
-      return callback(new Error('نوع الملف غير مسموح. يرجى رفع ملف Excel صالح.'));
+      return callback(new Error('This file type is not allowed. Please upload a valid Excel file.'));
     }
 
     return callback(null, true);
@@ -165,13 +164,13 @@ function handleMulterError(error) {
   if (error.code === 'LIMIT_FILE_SIZE') {
     return {
       status: 400,
-      message: 'حجم الملف أكبر من الحد المسموح وهو 10MB.'
+      message: 'The file is larger than the 10MB limit.'
     };
   }
 
   return {
     status: 400,
-    message: error.message || 'تعذر رفع الملف.'
+    message: error.message || 'The file could not be uploaded.'
   };
 }
 
@@ -193,7 +192,7 @@ app.get('/api/statistics', async (req, res, next) => {
   }
 });
 
-app.post('/api/upload', uploadLimiter, adminAuth, (req, res) => {
+app.post('/api/upload', uploadLimiter, (req, res) => {
   upload.single('excelFile')(req, res, async (uploadError) => {
     const friendlyUploadError = handleMulterError(uploadError);
 
@@ -205,7 +204,7 @@ app.post('/api/upload', uploadLimiter, adminAuth, (req, res) => {
 
     if (!req.file) {
       return res.status(400).json({
-        message: 'يرجى اختيار ملف Excel للرفع.'
+        message: 'Please choose an Excel file to upload.'
       });
     }
 
@@ -213,7 +212,7 @@ app.post('/api/upload', uploadLimiter, adminAuth, (req, res) => {
       const extractedData = await replaceDataFromExcel(req.file.buffer, req.file.originalname);
 
       return res.json({
-        message: 'تم تحديث البيانات بنجاح.',
+        message: 'Data updated successfully.',
         sheetCount: extractedData.fileInfo.sheetCount,
         rowCount: extractedData.fileInfo.totalRows,
         columnCount: extractedData.fileInfo.totalColumns,
@@ -223,7 +222,7 @@ app.post('/api/upload', uploadLimiter, adminAuth, (req, res) => {
       const statusCode = error.statusCode || 500;
 
       return res.status(statusCode).json({
-        message: statusCode === 400 ? error.message : 'حدث خطأ أثناء قراءة ملف Excel.'
+        message: statusCode === 400 ? error.message : 'An error occurred while reading the Excel file.'
       });
     }
   });
@@ -231,7 +230,7 @@ app.post('/api/upload', uploadLimiter, adminAuth, (req, res) => {
 
 app.use('/api', (req, res) => {
   res.status(404).json({
-    message: 'المسار المطلوب غير موجود.'
+    message: 'The requested route was not found.'
   });
 });
 
@@ -241,7 +240,7 @@ app.use((error, req, res, next) => {
   }
 
   return res.status(500).json({
-    message: 'حدث خطأ غير متوقع. يرجى المحاولة لاحقًا.'
+    message: 'An unexpected error occurred. Please try again later.'
   });
 });
 
