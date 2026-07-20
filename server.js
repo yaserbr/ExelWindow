@@ -7,7 +7,7 @@ const { ensureDataFile, loadStoredData, replaceDataFromExcel } = require('./serv
 const { buildStatistics, compareCellValues, formatCellValue } = require('./services/statisticsService');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 4000;
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
@@ -244,8 +244,18 @@ app.use((error, req, res, next) => {
 
 ensureDataFile()
   .then(() => {
-    app.listen(PORT, () => {
+    const server = app.listen(PORT, () => {
       console.log(`Excel dashboard is running on http://localhost:${PORT}`);
+    });
+
+    server.on('error', (error) => {
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} is already in use. Stop the running server first, then run node server.js again.`);
+        process.exit(1);
+      }
+
+      console.error('Server failed to start:', error.message);
+      process.exit(1);
     });
   })
   .catch((error) => {

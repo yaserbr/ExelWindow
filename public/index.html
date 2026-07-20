@@ -27,7 +27,7 @@
 
       <section id="emptyState" class="state-panel hidden">
         <h2>No data yet</h2>
-        <p>Upload an Excel file to generate statistics, charts, and tables.</p>
+        <p>Upload an Excel file to generate statistics and charts.</p>
       </section>
 
       <div id="dashboardContent" class="hidden">
@@ -77,32 +77,6 @@
             <h2>Charts</h2>
           </div>
           <div id="chartsGrid" class="charts-grid"></div>
-        </section>
-
-        <section class="panel table-panel">
-          <div class="table-toolbar">
-            <div>
-              <h2>Data Table</h2>
-              <p id="tableCount" class="muted-text"></p>
-            </div>
-            <label class="search-box">
-              <span>Search</span>
-              <input id="tableSearch" type="search" placeholder="Search this sheet">
-            </label>
-          </div>
-
-          <div class="table-wrap">
-            <table>
-              <thead id="tableHead"></thead>
-              <tbody id="tableBody"></tbody>
-            </table>
-          </div>
-
-          <div class="pagination">
-            <button id="prevPage" type="button">Previous</button>
-            <span id="pageInfo"></span>
-            <button id="nextPage" type="button">Next</button>
-          </div>
         </section>
       </div>
     </main>

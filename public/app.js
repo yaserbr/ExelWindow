@@ -1,12 +1,6 @@
 const state = {
   statistics: null,
   activeSheet: '',
-  columns: [],
-  page: 1,
-  limit: 20,
-  search: '',
-  sortBy: '',
-  sortDir: 'asc',
   chartInstances: []
 };
 
@@ -27,13 +21,6 @@ const elements = {
   dateStats: document.getElementById('dateStats'),
   chartsPanel: document.getElementById('chartsPanel'),
   chartsGrid: document.getElementById('chartsGrid'),
-  tableCount: document.getElementById('tableCount'),
-  tableSearch: document.getElementById('tableSearch'),
-  tableHead: document.getElementById('tableHead'),
-  tableBody: document.getElementById('tableBody'),
-  pageInfo: document.getElementById('pageInfo'),
-  prevPage: document.getElementById('prevPage'),
-  nextPage: document.getElementById('nextPage'),
   openUploadModal: document.getElementById('openUploadModal'),
   uploadModal: document.getElementById('uploadModal'),
   uploadForm: document.getElementById('uploadForm'),
@@ -78,18 +65,6 @@ function formatDateTime(value) {
     dateStyle: 'medium',
     timeStyle: 'short'
   }).format(dateValue);
-}
-
-function formatCell(value) {
-  if (value === null || value === undefined || value === '') {
-    return '-';
-  }
-
-  if (typeof value === 'boolean') {
-    return value ? 'Yes' : 'No';
-  }
-
-  return String(value);
 }
 
 function clearElement(element) {
@@ -404,90 +379,6 @@ function renderCharts(charts) {
   });
 }
 
-function renderTableHeader(columns) {
-  clearElement(elements.tableHead);
-
-  const row = document.createElement('tr');
-
-  columns.forEach((column) => {
-    const th = document.createElement('th');
-    const button = document.createElement('button');
-    const mark = document.createElement('span');
-
-    button.type = 'button';
-    button.className = 'sort-button';
-    button.dataset.column = column;
-    button.append(createTextElement('span', '', column));
-
-    mark.className = 'sort-mark';
-    mark.textContent = state.sortBy === column ? (state.sortDir === 'asc' ? '▲' : '▼') : '';
-    button.append(mark);
-
-    th.append(button);
-    row.append(th);
-  });
-
-  elements.tableHead.append(row);
-}
-
-function renderTableRows(rows, columns) {
-  clearElement(elements.tableBody);
-
-  if (rows.length === 0) {
-    const row = document.createElement('tr');
-    const cell = document.createElement('td');
-    cell.colSpan = Math.max(columns.length, 1);
-    cell.textContent = 'No matching rows found in this sheet.';
-    row.append(cell);
-    elements.tableBody.append(row);
-    return;
-  }
-
-  rows.forEach((dataRow) => {
-    const row = document.createElement('tr');
-
-    columns.forEach((column) => {
-      const cell = document.createElement('td');
-      cell.textContent = formatCell(dataRow[column]);
-      row.append(cell);
-    });
-
-    elements.tableBody.append(row);
-  });
-}
-
-function renderPagination(pagination) {
-  elements.pageInfo.textContent = `Page ${formatNumber(pagination.page)} of ${formatNumber(pagination.totalPages)}`;
-  elements.prevPage.disabled = pagination.page <= 1;
-  elements.nextPage.disabled = pagination.page >= pagination.totalPages;
-  elements.tableCount.textContent = `${formatNumber(pagination.totalRows)} matching rows`;
-}
-
-async function loadTable(page = state.page) {
-  const params = new URLSearchParams({
-    sheet: state.activeSheet,
-    page: String(page),
-    limit: String(state.limit),
-    search: state.search,
-    sortBy: state.sortBy,
-    sortDir: state.sortDir
-  });
-
-  const response = await fetch(`/api/data?${params.toString()}`);
-
-  if (!response.ok) {
-    throw new Error('Could not load table data.');
-  }
-
-  const payload = await response.json();
-  state.page = payload.pagination.page;
-  state.columns = payload.columns;
-
-  renderTableHeader(payload.columns);
-  renderTableRows(payload.rows, payload.columns);
-  renderPagination(payload.pagination);
-}
-
 async function renderActiveSheet() {
   const sheetStatistics = getActiveSheetStats();
 
@@ -506,7 +397,6 @@ async function renderActiveSheet() {
   renderTextStats(sheetStatistics.textStats);
   renderDateStats(sheetStatistics.dateStats);
   renderCharts(sheetStatistics.chartData);
-  await loadTable(1);
 }
 
 async function loadDashboard() {
@@ -543,14 +433,6 @@ async function loadDashboard() {
   } finally {
     setMainLoading(false);
   }
-}
-
-function resetTableState() {
-  state.page = 1;
-  state.search = '';
-  state.sortBy = '';
-  state.sortDir = 'asc';
-  elements.tableSearch.value = '';
 }
 
 function openUploadModal() {
@@ -613,7 +495,6 @@ async function handleUpload(event) {
       'success'
     );
     state.activeSheet = '';
-    resetTableState();
     await loadDashboard();
     closeUploadModal();
   } catch (error) {
@@ -622,15 +503,6 @@ async function handleUpload(event) {
     elements.uploadButton.disabled = false;
     elements.uploadButton.textContent = 'Upload and Replace';
   }
-}
-
-function debounce(fn, delay) {
-  let timerId;
-
-  return (...args) => {
-    window.clearTimeout(timerId);
-    timerId = window.setTimeout(() => fn(...args), delay);
-  };
 }
 
 function bindEvents() {
@@ -654,7 +526,6 @@ function bindEvents() {
     }
 
     state.activeSheet = button.dataset.sheet;
-    resetTableState();
 
     try {
       await renderActiveSheet();
@@ -663,42 +534,6 @@ function bindEvents() {
     }
   });
 
-  elements.tableSearch.addEventListener('input', debounce(async (event) => {
-    state.search = event.target.value.trim();
-    state.page = 1;
-    try {
-      await loadTable(1);
-    } catch (error) {
-      setMessage(error.message, 'error');
-    }
-  }, 350));
-
-  elements.tableHead.addEventListener('click', async (event) => {
-    const button = event.target.closest('.sort-button');
-    if (!button) {
-      return;
-    }
-
-    const column = button.dataset.column;
-    state.sortDir = state.sortBy === column && state.sortDir === 'asc' ? 'desc' : 'asc';
-    state.sortBy = column;
-
-    try {
-      await loadTable(1);
-    } catch (error) {
-      setMessage(error.message, 'error');
-    }
-  });
-
-  elements.prevPage.addEventListener('click', () => {
-    if (state.page > 1) {
-      loadTable(state.page - 1).catch((error) => setMessage(error.message, 'error'));
-    }
-  });
-
-  elements.nextPage.addEventListener('click', () => {
-    loadTable(state.page + 1).catch((error) => setMessage(error.message, 'error'));
-  });
 }
 
 bindEvents();

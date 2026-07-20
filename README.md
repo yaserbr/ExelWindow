@@ -1,6 +1,6 @@
 # Excel Statistics Dashboard
 
-A simple Node.js and Express web app that reads Excel workbooks, stores the extracted data in a local JSON file, and displays statistics, charts, and paginated tables for every sheet in the workbook.
+A simple Node.js and Express web app that reads Excel workbooks, stores the extracted data in a local JSON file, and displays statistics and charts for every sheet in the workbook.
 
 ## Overview
 
@@ -13,8 +13,7 @@ The app has one public page at `/`. Any visitor can view the dashboard and uploa
 - Detects the most likely header row in each sheet.
 - Stores extracted data in `data/data.json`.
 - Shows one tab per sheet.
-- Shows summary cards, column types, blank value counts, numeric statistics, text statistics, date statistics, charts, and a searchable table.
-- Keeps table search, sorting, and pagination on the server.
+- Shows summary cards, column types, blank value counts, numeric statistics, text statistics, date statistics, and charts.
 - Limits uploads to 10MB and rate-limits the upload endpoint.
 
 ## Install
@@ -38,7 +37,7 @@ npm run dev
 Open:
 
 ```text
-http://localhost:3000
+http://localhost:4000
 ```
 
 ## Uploading Excel Files
@@ -76,12 +75,6 @@ For date columns it calculates:
 - Monthly record counts when possible
 
 ## API
-
-Get paginated rows for a sheet:
-
-```text
-GET /api/data?sheet=SheetName&page=1&limit=20&search=&sortBy=&sortDir=asc
-```
 
 Get workbook and per-sheet statistics:
 
