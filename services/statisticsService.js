@@ -256,6 +256,34 @@ function buildTextStatistics(rows, textColumns) {
   }, {});
 }
 
+function buildColumnFilterOptions(rows, columns) {
+  return columns.reduce((options, column) => {
+    const frequencies = new Map();
+
+    rows.forEach((row) => {
+      const value = formatCellValue(row[column]);
+      if (!value) {
+        return;
+      }
+
+      frequencies.set(value, (frequencies.get(value) || 0) + 1);
+    });
+
+    options[column] = [...frequencies.entries()]
+      .sort((a, b) => {
+        if (b[1] !== a[1]) {
+          return b[1] - a[1];
+        }
+
+        return a[0].localeCompare(b[0], 'en');
+      })
+      .slice(0, 500)
+      .map(([value, count]) => ({ value, count }));
+
+    return options;
+  }, {});
+}
+
 function buildDateStatistics(rows, dateColumns) {
   return dateColumns.reduce((stats, column) => {
     const dates = rows
@@ -413,11 +441,14 @@ function buildSheetStatistics(sheet) {
   const textStats = buildTextStatistics(rows, columnTypes.text);
   const dateStats = buildDateStatistics(rows, columnTypes.date);
   const chartData = buildChartData(rows, columnTypes, numericStats, textStats);
+  const filterOptions = buildColumnFilterOptions(rows, columns);
 
   return {
     sheetName: sheet.name,
+    role: sheet.role || 'detail',
     range: sheet.range || '',
     headerRowNumber: sheet.headerRowNumber || null,
+    rawRows: sheet.rawRows || [],
     fileInfo: {
       rowCount: rows.length,
       columnCount: columns.length
@@ -426,7 +457,8 @@ function buildSheetStatistics(sheet) {
     numericStats,
     textStats,
     dateStats,
-    chartData
+    chartData,
+    filterOptions
   };
 }
 
@@ -441,6 +473,7 @@ function buildStatistics(storedData) {
       totalColumns: sheets.reduce((total, sheet) => total + sheet.fileInfo.columnCount, 0),
       sheets: sheets.map((sheet) => ({
         name: sheet.sheetName,
+        role: sheet.role,
         rowCount: sheet.fileInfo.rowCount,
         columnCount: sheet.fileInfo.columnCount,
         range: sheet.range,

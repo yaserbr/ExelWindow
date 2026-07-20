@@ -72,6 +72,16 @@ function normalizeCellValue(value) {
   return fallbackValue === '' ? null : fallbackValue;
 }
 
+function normalizeDisplayCell(value) {
+  const normalizedValue = normalizeCellValue(value);
+
+  if (normalizedValue === null || normalizedValue === undefined) {
+    return '';
+  }
+
+  return String(normalizedValue);
+}
+
 function isEmptyRow(row) {
   return Object.values(row).every(isEmptyCell);
 }
@@ -163,6 +173,14 @@ function parseSheet(workbook, sheetName) {
     raw: true,
     blankrows: false
   });
+  const rawRows = XLSX.utils
+    .sheet_to_json(worksheet, {
+      header: 1,
+      defval: '',
+      raw: true,
+      blankrows: true
+    })
+    .map((row) => row.map(normalizeDisplayCell));
 
   const headerIndex = findHeaderIndex(tableRows);
 
@@ -171,6 +189,7 @@ function parseSheet(workbook, sheetName) {
       name: sheetName,
       range: worksheet?.['!ref'] || '',
       headerRowNumber: null,
+      rawRows,
       columns: [],
       rows: []
     };
@@ -200,6 +219,7 @@ function parseSheet(workbook, sheetName) {
     name: sheetName,
     range: worksheet?.['!ref'] || '',
     headerRowNumber: getExcelHeaderRowNumber(worksheet, headerIndex),
+    rawRows,
     columns,
     rows
   };
@@ -225,8 +245,10 @@ function normalizeStoredData(parsed) {
   if (Array.isArray(parsed?.sheets)) {
     const sheets = parsed.sheets.map((sheet) => ({
       name: sheet.name || 'Sheet',
+      role: sheet.role || 'detail',
       range: sheet.range || '',
       headerRowNumber: sheet.headerRowNumber || null,
+      rawRows: Array.isArray(sheet.rawRows) ? sheet.rawRows : [],
       columns: Array.isArray(sheet.columns) ? sheet.columns : [],
       rows: Array.isArray(sheet.rows) ? sheet.rows : []
     }));
@@ -253,8 +275,10 @@ function normalizeStoredData(parsed) {
 
   const legacySheet = {
     name: parsed?.fileInfo?.sheetName || 'Sheet1',
+    role: 'detail',
     range: '',
     headerRowNumber: null,
+    rawRows: [],
     columns: Array.isArray(parsed?.columns) ? parsed.columns : [],
     rows: Array.isArray(parsed?.rows) ? parsed.rows : []
   };
@@ -301,7 +325,10 @@ function parseWorkbook(buffer, originalName) {
     throw error;
   }
 
-  const sheets = workbook.SheetNames.map((sheetName) => parseSheet(workbook, sheetName));
+  const sheets = workbook.SheetNames.slice(0, 4).map((sheetName, index) => ({
+    ...parseSheet(workbook, sheetName),
+    role: index === 0 ? 'summary' : 'detail'
+  }));
 
   return {
     updatedAt: new Date().toISOString(),

@@ -10,9 +10,7 @@
   <div class="app-shell">
     <header class="page-header">
       <div>
-        <span class="eyebrow">Public dashboard</span>
         <h1>Excel Statistics Dashboard</h1>
-        <p id="lastUpdate" class="last-update">Last update: no data yet</p>
       </div>
       <button id="openUploadModal" class="admin-button" type="button">Upload New Excel</button>
     </header>
@@ -31,13 +29,20 @@
       </section>
 
       <div id="dashboardContent" class="hidden">
-        <section id="summaryCards" class="summary-grid" aria-label="Data summary"></section>
+        <section id="executiveSummaryPanel" class="panel executive-panel hidden">
+          <div class="section-heading">
+            <div>
+              <h2>Executive Summary</h2>
+              <p class="muted-text">The first workbook sheet is always displayed here exactly as a compact summary.</p>
+            </div>
+          </div>
+          <div id="executiveSummaryTables" class="executive-tables"></div>
+        </section>
 
         <section class="panel sheet-panel">
           <div class="section-heading">
             <div>
-              <h2>Sheets</h2>
-              <p id="activeSheetMeta" class="muted-text"></p>
+              <h2>Detailed Sheets</h2>
             </div>
           </div>
           <div id="sheetTabs" class="sheet-tabs" role="tablist" aria-label="Excel sheets"></div>
@@ -45,36 +50,40 @@
 
         <section class="panel">
           <div class="section-heading">
-            <h2>Columns</h2>
+            <div>
+              <h2>Choose a Column</h2>
+            </div>
           </div>
           <div id="columnsList" class="columns-list"></div>
-          <div id="blankValues" class="blank-values"></div>
         </section>
 
-        <section class="panel">
+        <section id="selectedColumnPanel" class="panel hidden">
           <div class="section-heading">
-            <h2>Numeric Statistics</h2>
+            <div>
+              <h2 id="selectedColumnTitle">Column Statistics</h2>
+              <p id="selectedColumnMeta" class="muted-text"></p>
+            </div>
           </div>
-          <div id="numericStats" class="stats-grid"></div>
-        </section>
-
-        <section class="panel">
-          <div class="section-heading">
-            <h2>Text Statistics</h2>
+          <div id="columnFilterPanel" class="filter-panel hidden">
+            <div class="filter-toolbar">
+              <div>
+                <h3>Filter Values</h3>
+                <p id="filterSummary" class="muted-text"></p>
+              </div>
+              <div class="filter-actions">
+                <button id="selectAllFilters" class="secondary-button compact-button" type="button">Select All</button>
+                <button id="clearFilters" class="secondary-button compact-button" type="button">Clear</button>
+              </div>
+            </div>
+            <input id="filterSearch" class="filter-search" type="search" placeholder="Search filter values">
+            <div id="filterOptions" class="filter-options"></div>
           </div>
-          <div id="textStats" class="stats-grid"></div>
-        </section>
-
-        <section id="dateStatsPanel" class="panel">
-          <div class="section-heading">
-            <h2>Date Statistics</h2>
-          </div>
-          <div id="dateStats" class="stats-grid"></div>
+          <div id="selectedColumnStats" class="stats-grid"></div>
         </section>
 
         <section id="chartsPanel" class="panel">
           <div class="section-heading">
-            <h2>Charts</h2>
+            <h2 id="chartTitle">Chart</h2>
           </div>
           <div id="chartsGrid" class="charts-grid"></div>
         </section>

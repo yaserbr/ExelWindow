@@ -190,6 +190,50 @@ app.get('/api/statistics', async (req, res, next) => {
   }
 });
 
+app.post('/api/column-statistics', async (req, res, next) => {
+  try {
+    const storedData = await loadStoredData();
+    const sheetName = typeof req.body.sheet === 'string' ? req.body.sheet : '';
+    const columnName = typeof req.body.column === 'string' ? req.body.column : '';
+    const selectedValues = Array.isArray(req.body.values)
+      ? req.body.values.map((value) => String(value)).filter(Boolean)
+      : [];
+    const selectedValueSet = new Set(selectedValues);
+    const selectedSheet = findSheet(storedData, sheetName);
+
+    if (!selectedSheet.columns.includes(columnName)) {
+      return res.status(400).json({
+        message: 'The selected column was not found.'
+      });
+    }
+
+    const filteredRows = selectedValues.length
+      ? selectedSheet.rows.filter((row) => selectedValueSet.has(formatCellValue(row[columnName])))
+      : selectedSheet.rows;
+
+    const filteredWorkbook = {
+      ...storedData,
+      sheets: [
+        {
+          ...selectedSheet,
+          rows: filteredRows
+        }
+      ]
+    };
+    const sheetStatistics = buildStatistics(filteredWorkbook).sheets[0];
+
+    return res.json({
+      sheet: selectedSheet.name,
+      column: columnName,
+      filteredRowCount: filteredRows.length,
+      totalRowCount: selectedSheet.rows.length,
+      statistics: sheetStatistics
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 app.post('/api/upload', uploadLimiter, (req, res) => {
   upload.single('excelFile')(req, res, async (uploadError) => {
     const friendlyUploadError = handleMulterError(uploadError);
