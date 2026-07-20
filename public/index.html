@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة إحصائيات Excel</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="page-header">
+      <div>
+        <span class="eyebrow">لوحة عامة</span>
+        <h1>لوحة إحصائيات Excel</h1>
+        <p id="lastUpdate" class="last-update">آخر تحديث: لا توجد بيانات</p>
+      </div>
+      <button id="openUploadModal" class="admin-button" type="button">تحديث البيانات</button>
+    </header>
+
+    <div id="messageBox" class="message-box" role="status" aria-live="polite"></div>
+
+    <main>
+      <section id="loadingState" class="state-panel">
+        <div class="loader"></div>
+        <p>جاري تحميل البيانات...</p>
+      </section>
+
+      <section id="emptyState" class="state-panel hidden">
+        <h2>لا توجد بيانات بعد</h2>
+        <p>ستظهر الإحصائيات هنا بعد رفع ملف Excel.</p>
+      </section>
+
+      <div id="dashboardContent" class="hidden">
+        <section id="summaryCards" class="summary-grid" aria-label="ملخص البيانات"></section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>الأعمدة</h2>
+          </div>
+          <div id="columnsList" class="columns-list"></div>
+          <div id="blankValues" class="blank-values"></div>
+        </section>
+
+        <section class="panel">
+          <div class="section-heading">
+            <h2>إحصائيات الأعمدة الرقمية</h2>
+          </div>
+          <div id="numericStats" class="stats-grid"></div>
+        </section>
+
+        <section id="dateStatsPanel" class="panel">
+          <div class="section-heading">
+            <h2>إحصائيات التواريخ</h2>
+          </div>
+          <div id="dateStats" class="stats-grid"></div>
+        </section>
+
+        <section id="chartsPanel" class="panel">
+          <div class="section-heading">
+            <h2>الرسوم البيانية</h2>
+          </div>
+          <div id="chartsGrid" class="charts-grid"></div>
+        </section>
+
+        <section class="panel table-panel">
+          <div class="table-toolbar">
+            <div>
+              <h2>جدول البيانات</h2>
+              <p id="tableCount" class="muted-text"></p>
+            </div>
+            <label class="search-box">
+              <span>بحث</span>
+              <input id="tableSearch" type="search" placeholder="ابحث داخل الجدول">
+            </label>
+          </div>
+
+          <div class="table-wrap">
+            <table>
+              <thead id="tableHead"></thead>
+              <tbody id="tableBody"></tbody>
+            </table>
+          </div>
+
+          <div class="pagination">
+            <button id="nextPage" type="button">التالي</button>
+            <span id="pageInfo"></span>
+            <button id="prevPage" type="button">السابق</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="uploadModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="uploadTitle">
+    <div class="modal-backdrop" data-close-modal></div>
+    <form id="uploadForm" class="modal-card">
+      <div class="modal-header">
+        <h2 id="uploadTitle">تحديث البيانات</h2>
+        <button class="close-button" type="button" aria-label="إغلاق" data-close-modal>×</button>
+      </div>
+
+      <label>
+        <span>كلمة مرور الأدمن</span>
+        <input id="adminPassword" type="password" autocomplete="current-password" required>
+      </label>
+
+      <label>
+        <span>ملف Excel</span>
+        <input id="excelFile" type="file" accept=".xlsx,.xls" required>
+      </label>
+
+      <div id="uploadStatus" class="upload-status" role="status" aria-live="polite"></div>
+
+      <div class="modal-actions">
+        <button class="secondary-button" type="button" data-close-modal>إلغاء</button>
+        <button id="uploadButton" class="primary-button" type="submit">رفع الملف</button>
+      </div>
+    </form>
+  </div>
+
+  <script src="/vendor/chart.js/chart.umd.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
