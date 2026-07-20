@@ -23,16 +23,6 @@ The app has one public page at `/`. Any visitor can view the dashboard and uploa
 npm install
 ```
 
-## Environment
-
-Create a `.env` file from `.env.example`:
-
-```env
-PORT=3000
-```
-
-No admin password is required. Anyone who can access the site can upload a new Excel file and replace the current data.
-
 ## Run
 
 ```bash
@@ -126,7 +116,5 @@ npm install
 ```bash
 npm start
 ```
-
-5. Add `PORT` only if your platform requires it.
 
 Because the extracted data is saved in a local JSON file, use persistent storage if you need uploaded data to survive restarts or redeployments.

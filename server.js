@@ -1,5 +1,3 @@
-require('dotenv').config();
-
 const path = require('path');
 const express = require('express');
 const helmet = require('helmet');
@@ -9,7 +7,7 @@ const { ensureDataFile, loadStoredData, replaceDataFromExcel } = require('./serv
 const { buildStatistics, compareCellValues, formatCellValue } = require('./services/statisticsService');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = 3000;
 const MAX_UPLOAD_SIZE = 10 * 1024 * 1024;
 const DEFAULT_PAGE_SIZE = 20;
 const MAX_PAGE_SIZE = 100;
