@@ -9,9 +9,7 @@
 <body>
   <div class="app-shell">
     <header class="page-header">
-      <div>
-        <h1>Excel Statistics Dashboard</h1>
-      </div>
+      <h1>Excel Statistics Dashboard</h1>
       <button id="openUploadModal" class="admin-button" type="button">Upload New Excel</button>
     </header>
 
@@ -25,67 +23,40 @@
 
       <section id="emptyState" class="state-panel hidden">
         <h2>No data yet</h2>
-        <p>Upload an Excel file to generate statistics and charts.</p>
+        <p>Upload an Excel file to generate the dashboard.</p>
       </section>
 
       <div id="dashboardContent" class="hidden">
-        <section id="executiveSummaryPanel" class="panel executive-panel hidden">
+        <section id="firstSheetPanel" class="panel first-sheet-panel hidden">
           <div class="section-heading">
-            <div>
-              <h2>Executive Summary</h2>
-              <p class="muted-text">The first workbook sheet is always displayed here exactly as a compact summary.</p>
-            </div>
+            <h2 id="firstSheetTitle"></h2>
           </div>
-          <div id="executiveSummaryTables" class="executive-tables"></div>
+          <div id="firstSheetTables" class="first-sheet-tables"></div>
         </section>
 
-        <section class="panel sheet-panel">
+        <section class="panel">
           <div class="section-heading">
-            <div>
-              <h2>Detailed Sheets</h2>
-            </div>
+            <h2>Sheets</h2>
           </div>
           <div id="sheetTabs" class="sheet-tabs" role="tablist" aria-label="Excel sheets"></div>
         </section>
 
         <section class="panel">
           <div class="section-heading">
-            <div>
-              <h2>Choose a Column</h2>
-            </div>
+            <h2>Columns</h2>
           </div>
           <div id="columnsList" class="columns-list"></div>
         </section>
 
         <section id="selectedColumnPanel" class="panel hidden">
           <div class="section-heading">
-            <div>
-              <h2 id="selectedColumnTitle">Column Statistics</h2>
-              <p id="selectedColumnMeta" class="muted-text"></p>
-            </div>
-          </div>
-          <div id="columnFilterPanel" class="filter-panel hidden">
-            <div class="filter-toolbar">
-              <div>
-                <h3>Filter Values</h3>
-                <p id="filterSummary" class="muted-text"></p>
-              </div>
-              <div class="filter-actions">
-                <button id="selectAllFilters" class="secondary-button compact-button" type="button">Select All</button>
-                <button id="clearFilters" class="secondary-button compact-button" type="button">Clear</button>
-              </div>
-            </div>
-            <input id="filterSearch" class="filter-search" type="search" placeholder="Search filter values">
-            <div id="filterOptions" class="filter-options"></div>
+            <h2 id="selectedColumnTitle">Column</h2>
           </div>
           <div id="selectedColumnStats" class="stats-grid"></div>
-        </section>
-
-        <section id="chartsPanel" class="panel">
-          <div class="section-heading">
-            <h2 id="chartTitle">Chart</h2>
-          </div>
-          <div id="chartsGrid" class="charts-grid"></div>
+          <article class="chart-card single-chart-card">
+            <h3 id="chartTitle">Chart</h3>
+            <canvas id="chartCanvas"></canvas>
+          </article>
         </section>
       </div>
     </main>
@@ -96,7 +67,7 @@
     <form id="uploadForm" class="modal-card">
       <div class="modal-header">
         <h2 id="uploadTitle">Upload New Excel</h2>
-        <button class="close-button" type="button" aria-label="Close" data-close-modal>×</button>
+        <button class="close-button" type="button" aria-label="Close" data-close-modal>&times;</button>
       </div>
 
       <label>

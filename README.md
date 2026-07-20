@@ -9,14 +9,13 @@ The app has one public page at `/`. Any visitor can view the dashboard and uploa
 ## Features
 
 - Reads `.xlsx` and `.xls` files.
-- Processes only the first four workbook sheets: the first sheet as the summary and the next three sheets as detail sheets.
+- Processes only the first four workbook sheets: the first sheet is shown as-is, and the next three sheets are used for column statistics.
 - Detects the most likely header row in each sheet.
 - Stores extracted data in `data/data.json`.
-- Always shows the first workbook sheet as compact workbook-style summary tables, regardless of its name.
+- Always shows the first workbook sheet as compact workbook-style tables, using its real sheet name.
 - Shows one tab for each of the next three detail sheets.
 - Keeps detail-sheet statistics collapsed until a user selects a column button.
-- Adds value filters for the selected column and recalculates the statistics/chart from the filtered rows.
-- Shows column type, blank values, numeric statistics, text statistics, date statistics, and three matching charts for the selected column.
+- Shows blank values, numeric statistics, text statistics, date statistics, and one matching chart for the selected column.
 - Limits uploads to 10MB and rate-limits the upload endpoint.
 
 ## Install

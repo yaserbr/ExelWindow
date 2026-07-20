@@ -241,11 +241,19 @@ function buildFileInfo(originalName, sheets) {
   };
 }
 
+function normalizeSheetRole(role, index = 0) {
+  if (role === 'summary' || role === 'first') {
+    return 'first';
+  }
+
+  return index === 0 ? 'first' : 'detail';
+}
+
 function normalizeStoredData(parsed) {
   if (Array.isArray(parsed?.sheets)) {
-    const sheets = parsed.sheets.map((sheet) => ({
+    const sheets = parsed.sheets.map((sheet, index) => ({
       name: sheet.name || 'Sheet',
-      role: sheet.role || 'detail',
+      role: normalizeSheetRole(sheet.role, index),
       range: sheet.range || '',
       headerRowNumber: sheet.headerRowNumber || null,
       rawRows: Array.isArray(sheet.rawRows) ? sheet.rawRows : [],
@@ -275,7 +283,7 @@ function normalizeStoredData(parsed) {
 
   const legacySheet = {
     name: parsed?.fileInfo?.sheetName || 'Sheet1',
-    role: 'detail',
+    role: 'first',
     range: '',
     headerRowNumber: null,
     rawRows: [],
@@ -327,7 +335,7 @@ function parseWorkbook(buffer, originalName) {
 
   const sheets = workbook.SheetNames.slice(0, 4).map((sheetName, index) => ({
     ...parseSheet(workbook, sheetName),
-    role: index === 0 ? 'summary' : 'detail'
+    role: index === 0 ? 'first' : 'detail'
   }));
 
   return {

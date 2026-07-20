@@ -1,5 +1,3 @@
-const MAX_CHARTS = 6;
-
 const ARABIC_DIGITS = {
   '٠': '0',
   '١': '1',
@@ -22,40 +20,6 @@ const ARABIC_DIGITS = {
   '۸': '8',
   '۹': '9'
 };
-
-const CHART_COLUMN_PRIORITY = [
-  /status/i,
-  /execution status/i,
-  /defect severity/i,
-  /severity/i,
-  /assignedto/i,
-  /assigned to/i,
-  /channel/i,
-  /priority/i,
-  /category/i,
-  /type/i,
-  /impacted system/i,
-  /used by/i
-];
-
-const LOW_VALUE_CHART_COLUMNS = [
-  /description/i,
-  /summary/i,
-  /comment/i,
-  /addon/i,
-  /dependency/i,
-  /rca/i,
-  /reason/i,
-  /msisdn/i,
-  /imsi/i,
-  /sim/i,
-  /pin/i,
-  /puk/i,
-  /ki value/i,
-  /tc no/i,
-  /jira/i,
-  /defect id/i
-];
 
 function isEmptyValue(value) {
   return value === null || value === undefined || (typeof value === 'string' && value.trim() === '');
@@ -256,34 +220,6 @@ function buildTextStatistics(rows, textColumns) {
   }, {});
 }
 
-function buildColumnFilterOptions(rows, columns) {
-  return columns.reduce((options, column) => {
-    const frequencies = new Map();
-
-    rows.forEach((row) => {
-      const value = formatCellValue(row[column]);
-      if (!value) {
-        return;
-      }
-
-      frequencies.set(value, (frequencies.get(value) || 0) + 1);
-    });
-
-    options[column] = [...frequencies.entries()]
-      .sort((a, b) => {
-        if (b[1] !== a[1]) {
-          return b[1] - a[1];
-        }
-
-        return a[0].localeCompare(b[0], 'en');
-      })
-      .slice(0, 500)
-      .map(([value, count]) => ({ value, count }));
-
-    return options;
-  }, {});
-}
-
 function buildDateStatistics(rows, dateColumns) {
   return dateColumns.reduce((stats, column) => {
     const dates = rows
@@ -309,130 +245,6 @@ function buildDateStatistics(rows, dateColumns) {
   }, {});
 }
 
-function getColumnPriority(column) {
-  const priorityIndex = CHART_COLUMN_PRIORITY.findIndex((pattern) => pattern.test(column));
-  return priorityIndex === -1 ? 100 : priorityIndex;
-}
-
-function isLowValueChartColumn(column) {
-  return LOW_VALUE_CHART_COLUMNS.some((pattern) => pattern.test(column));
-}
-
-function truncateLabel(value) {
-  const text = formatCellValue(value);
-  return text.length > 48 ? `${text.slice(0, 45)}...` : text;
-}
-
-function buildLineChart(rows, dateColumn, numericColumn) {
-  const monthlyValues = new Map();
-
-  rows.forEach((row) => {
-    const dateValue = parseDateValue(row[dateColumn]);
-    const numericValue = parseNumberValue(row[numericColumn]);
-
-    if (!dateValue || numericValue === null) {
-      return;
-    }
-
-    const monthKey = dateValue.toISOString().slice(0, 7);
-    monthlyValues.set(monthKey, (monthlyValues.get(monthKey) || 0) + numericValue);
-  });
-
-  const entries = [...monthlyValues.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-
-  if (entries.length < 2) {
-    return null;
-  }
-
-  return {
-    id: `line-${dateColumn}-${numericColumn}`,
-    type: 'line',
-    title: `${numericColumn} by ${dateColumn}`,
-    labels: entries.map(([month]) => month),
-    datasets: [
-      {
-        label: numericColumn,
-        data: entries.map(([, value]) => roundNumber(value))
-      }
-    ]
-  };
-}
-
-function buildNumericSummaryChart(numericStats) {
-  const entries = Object.entries(numericStats).slice(0, 8);
-
-  if (entries.length < 2) {
-    return null;
-  }
-
-  return {
-    id: 'numeric-sums',
-    type: 'bar',
-    title: 'Numeric Column Totals',
-    labels: entries.map(([column]) => column),
-    datasets: [
-      {
-        label: 'Total',
-        data: entries.map(([, stat]) => stat.sum || 0)
-      }
-    ]
-  };
-}
-
-function buildTextChart(column, stat) {
-  if (!stat || stat.topValues.length < 2 || isLowValueChartColumn(column)) {
-    return null;
-  }
-
-  const chartType = stat.uniqueCount <= 8 ? 'doughnut' : 'bar';
-
-  return {
-    id: `text-${column}`,
-    type: chartType,
-    title: `${column} Distribution`,
-    labels: stat.topValues.map((item) => truncateLabel(item.value)),
-    datasets: [
-      {
-        label: column,
-        data: stat.topValues.map((item) => item.count)
-      }
-    ]
-  };
-}
-
-function buildChartData(rows, columnTypes, numericStats, textStats) {
-  const charts = [];
-  const firstDateColumn = columnTypes.date[0];
-  const firstNumericColumn = columnTypes.numeric[0];
-
-  if (firstDateColumn && firstNumericColumn) {
-    const lineChart = buildLineChart(rows, firstDateColumn, firstNumericColumn);
-    if (lineChart) {
-      charts.push(lineChart);
-    }
-  }
-
-  const textColumns = [...columnTypes.text].sort((a, b) => getColumnPriority(a) - getColumnPriority(b));
-
-  for (const column of textColumns) {
-    if (charts.length >= MAX_CHARTS) {
-      break;
-    }
-
-    const textChart = buildTextChart(column, textStats[column]);
-    if (textChart) {
-      charts.push(textChart);
-    }
-  }
-
-  const numericChart = buildNumericSummaryChart(numericStats);
-  if (numericChart && charts.length < MAX_CHARTS) {
-    charts.push(numericChart);
-  }
-
-  return charts.slice(0, MAX_CHARTS);
-}
-
 function buildSheetStatistics(sheet) {
   const rows = sheet.rows || [];
   const columns = sheet.columns || [];
@@ -440,8 +252,6 @@ function buildSheetStatistics(sheet) {
   const numericStats = buildNumericStatistics(rows, columnTypes.numeric);
   const textStats = buildTextStatistics(rows, columnTypes.text);
   const dateStats = buildDateStatistics(rows, columnTypes.date);
-  const chartData = buildChartData(rows, columnTypes, numericStats, textStats);
-  const filterOptions = buildColumnFilterOptions(rows, columns);
 
   return {
     sheetName: sheet.name,
@@ -456,9 +266,7 @@ function buildSheetStatistics(sheet) {
     columnTypes,
     numericStats,
     textStats,
-    dateStats,
-    chartData,
-    filterOptions
+    dateStats
   };
 }
 

@@ -2,9 +2,7 @@ const state = {
   statistics: null,
   activeSheet: '',
   selectedColumn: '',
-  selectedFilterValues: new Set(),
-  filterSearch: '',
-  chartInstances: []
+  chartInstance: null
 };
 
 const elements = {
@@ -12,23 +10,16 @@ const elements = {
   loadingState: document.getElementById('loadingState'),
   emptyState: document.getElementById('emptyState'),
   dashboardContent: document.getElementById('dashboardContent'),
-  executiveSummaryPanel: document.getElementById('executiveSummaryPanel'),
-  executiveSummaryTables: document.getElementById('executiveSummaryTables'),
+  firstSheetPanel: document.getElementById('firstSheetPanel'),
+  firstSheetTitle: document.getElementById('firstSheetTitle'),
+  firstSheetTables: document.getElementById('firstSheetTables'),
   sheetTabs: document.getElementById('sheetTabs'),
   columnsList: document.getElementById('columnsList'),
   selectedColumnPanel: document.getElementById('selectedColumnPanel'),
   selectedColumnTitle: document.getElementById('selectedColumnTitle'),
-  selectedColumnMeta: document.getElementById('selectedColumnMeta'),
-  columnFilterPanel: document.getElementById('columnFilterPanel'),
-  filterSummary: document.getElementById('filterSummary'),
-  selectAllFilters: document.getElementById('selectAllFilters'),
-  clearFilters: document.getElementById('clearFilters'),
-  filterSearch: document.getElementById('filterSearch'),
-  filterOptions: document.getElementById('filterOptions'),
   selectedColumnStats: document.getElementById('selectedColumnStats'),
-  chartsPanel: document.getElementById('chartsPanel'),
   chartTitle: document.getElementById('chartTitle'),
-  chartsGrid: document.getElementById('chartsGrid'),
+  chartCanvas: document.getElementById('chartCanvas'),
   openUploadModal: document.getElementById('openUploadModal'),
   uploadModal: document.getElementById('uploadModal'),
   uploadForm: document.getElementById('uploadForm'),
@@ -37,16 +28,7 @@ const elements = {
   uploadButton: document.getElementById('uploadButton')
 };
 
-const chartColors = [
-  '#1264d8',
-  '#10a37f',
-  '#b7791f',
-  '#7c3aed',
-  '#dc2626',
-  '#0891b2',
-  '#4f46e5',
-  '#65a30d'
-];
+const chartColors = ['#1264d8', '#10a37f', '#4f46e5', '#0891b2', '#65a30d', '#dc2626'];
 
 function formatNumber(value) {
   if (value === null || value === undefined || value === '') {
@@ -58,20 +40,18 @@ function formatNumber(value) {
   }).format(value);
 }
 
-function formatDateTime(value) {
+function formatDate(value) {
   if (!value) {
-    return 'No data yet';
+    return '-';
   }
 
   const dateValue = new Date(value);
-
   if (Number.isNaN(dateValue.getTime())) {
-    return 'Unknown date';
+    return '-';
   }
 
   return new Intl.DateTimeFormat('en-US', {
-    dateStyle: 'medium',
-    timeStyle: 'short'
+    dateStyle: 'medium'
   }).format(dateValue);
 }
 
@@ -95,33 +75,24 @@ function setMessage(text, type = 'success') {
   window.setTimeout(() => {
     elements.messageBox.textContent = '';
     elements.messageBox.className = 'message-box';
-  }, 5000);
+  }, 4500);
 }
 
 function setMainLoading(isLoading) {
   elements.loadingState.classList.toggle('hidden', !isLoading);
 }
 
-function getExecutiveSheet() {
-  return state.statistics?.sheets?.find((sheet) => sheet.role === 'summary') || state.statistics?.sheets?.[0] || null;
+function getFirstWorkbookSheet() {
+  return state.statistics?.sheets?.[0] || null;
 }
 
 function getDetailSheets() {
-  return (state.statistics?.sheets || []).filter((sheet) => sheet.role !== 'summary');
+  return (state.statistics?.sheets || []).slice(1, 4);
 }
 
 function getActiveSheetStats() {
   const detailSheets = getDetailSheets();
-
-  if (!detailSheets.length) {
-    return null;
-  }
-
-  return (
-    detailSheets.find((sheet) => sheet.sheetName === state.activeSheet) ||
-    detailSheets.find((sheet) => sheet.fileInfo.rowCount > 0) ||
-    detailSheets[0]
-  );
+  return detailSheets.find((sheet) => sheet.sheetName === state.activeSheet) || detailSheets[0] || null;
 }
 
 function isBlankRow(row) {
@@ -174,22 +145,11 @@ function splitIntoTables(rows) {
 }
 
 function compactTableRows(rows) {
-  const maxColumns = rows.reduce((max, row) => {
-    let lastCellIndex = row.length - 1;
-
-    while (lastCellIndex >= 0 && String(row[lastCellIndex] || '').trim() === '') {
-      lastCellIndex -= 1;
-    }
-
-    return Math.max(max, lastCellIndex + 1);
-  }, 0);
-
+  const maxColumns = rows.reduce((max, row) => Math.max(max, row.length), 0);
   const usedColumnIndexes = [];
 
   for (let index = 0; index < maxColumns; index += 1) {
-    const hasData = rows.some((row) => String(row[index] || '').trim() !== '');
-
-    if (hasData) {
+    if (rows.some((row) => String(row[index] || '').trim() !== '')) {
       usedColumnIndexes.push(index);
     }
   }
@@ -197,27 +157,29 @@ function compactTableRows(rows) {
   return rows.map((row) => usedColumnIndexes.map((index) => row[index] || ''));
 }
 
-function renderExecutiveSummary() {
-  const executiveSheet = getExecutiveSheet();
-  clearElement(elements.executiveSummaryTables);
+function renderFirstSheet() {
+  const firstSheet = getFirstWorkbookSheet();
+  clearElement(elements.firstSheetTables);
 
-  if (!executiveSheet || !executiveSheet.rawRows?.length) {
-    elements.executiveSummaryPanel.classList.add('hidden');
+  if (!firstSheet || !firstSheet.rawRows?.length) {
+    elements.firstSheetPanel.classList.add('hidden');
     return;
   }
 
-  const tables = splitIntoTables(executiveSheet.rawRows);
+  elements.firstSheetTitle.textContent = firstSheet.sheetName;
 
-  tables.forEach((sourceRows, tableIndex) => {
+  splitIntoTables(firstSheet.rawRows).forEach((sourceRows) => {
     const rows = compactTableRows(sourceRows);
     const firstRowValues = rows[0]?.filter((cell) => String(cell || '').trim() !== '') || [];
     const hasStandaloneTitle = firstRowValues.length === 1 && rows.length > 1;
+    const titleText = hasStandaloneTitle ? String(firstRowValues[0]).trim() : '';
+    const shouldShowTitle = titleText && titleText.toLowerCase() !== firstSheet.sheetName.toLowerCase();
     const tableRows = hasStandaloneTitle ? rows.slice(1) : rows;
     const tableCard = document.createElement('article');
     tableCard.className = 'mini-table-card';
 
-    if (hasStandaloneTitle) {
-      tableCard.append(createTextElement('h3', '', firstRowValues[0]));
+    if (shouldShowTitle) {
+      tableCard.append(createTextElement('h3', '', titleText));
     }
 
     const table = document.createElement('table');
@@ -225,10 +187,10 @@ function renderExecutiveSummary() {
 
     tableRows.forEach((row, rowIndex) => {
       const tableRow = document.createElement('tr');
-      const hasManyCells = row.filter((cell) => String(cell || '').trim() !== '').length > 1;
+      const filledCells = row.filter((cell) => String(cell || '').trim() !== '').length;
 
       row.forEach((cell) => {
-        const cellElement = document.createElement(rowIndex === 0 && hasManyCells ? 'th' : 'td');
+        const cellElement = document.createElement(rowIndex === 0 && filledCells > 1 ? 'th' : 'td');
         cellElement.textContent = String(cell || '');
         tableRow.append(cellElement);
       });
@@ -237,17 +199,16 @@ function renderExecutiveSummary() {
     });
 
     tableCard.append(table);
-    elements.executiveSummaryTables.append(tableCard);
+    elements.firstSheetTables.append(tableCard);
   });
 
-  elements.executiveSummaryPanel.classList.remove('hidden');
+  elements.firstSheetPanel.classList.remove('hidden');
 }
 
-function renderSheetTabs(workbookStatistics) {
+function renderSheetTabs() {
   clearElement(elements.sheetTabs);
 
-  const detailSheets = workbookStatistics.fileInfo.sheets.filter((sheet) => sheet.role !== 'summary');
-
+  const detailSheets = getDetailSheets();
   if (!detailSheets.length) {
     elements.sheetTabs.append(createTextElement('p', 'muted-text', 'No detail sheets found.'));
     return;
@@ -256,85 +217,29 @@ function renderSheetTabs(workbookStatistics) {
   detailSheets.forEach((sheet) => {
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = `sheet-tab${sheet.name === state.activeSheet ? ' active' : ''}`;
-    button.dataset.sheet = sheet.name;
-    button.setAttribute('role', 'tab');
-    button.setAttribute('aria-selected', sheet.name === state.activeSheet ? 'true' : 'false');
-
-    const title = createTextElement('span', 'sheet-tab-title', sheet.name);
-    const meta = createTextElement(
-      'span',
-      'sheet-tab-meta',
-      `${formatNumber(sheet.rowCount)} rows - ${formatNumber(sheet.columnCount)} columns`
-    );
-
-    button.append(title, meta);
+    button.className = `sheet-tab${sheet.sheetName === state.activeSheet ? ' active' : ''}`;
+    button.dataset.sheet = sheet.sheetName;
+    button.textContent = sheet.sheetName;
     elements.sheetTabs.append(button);
   });
 }
 
-function renderColumnButtons(statistics) {
+function renderColumnButtons(sheetStatistics) {
   clearElement(elements.columnsList);
 
-  if (!statistics.columnTypes.all.length) {
-    elements.columnsList.append(createTextElement('p', 'muted-text', 'This sheet has no columns.'));
+  const columns = sheetStatistics?.columnTypes?.all || [];
+  if (!columns.length) {
+    elements.columnsList.append(createTextElement('p', 'muted-text', 'No columns found in this sheet.'));
     return;
   }
 
-  statistics.columnTypes.all.forEach((column) => {
+  columns.forEach((column) => {
     const button = document.createElement('button');
-    const details = statistics.columnTypes.details[column];
-
     button.type = 'button';
     button.className = `column-button${state.selectedColumn === column ? ' active' : ''}`;
     button.dataset.column = column;
-    button.append(createTextElement('span', 'column-name', column));
-    button.append(createTextElement('span', 'column-meta', `${details.type} - ${formatNumber(details.emptyCount)} blank`));
+    button.textContent = column;
     elements.columnsList.append(button);
-  });
-}
-
-function getSelectedFilterValuesArray() {
-  return [...state.selectedFilterValues];
-}
-
-function getFilterOptions(sheetStatistics, column) {
-  return sheetStatistics.filterOptions?.[column] || [];
-}
-
-function renderFilterOptions(sheetStatistics, column) {
-  const options = getFilterOptions(sheetStatistics, column);
-  const normalizedSearch = state.filterSearch.trim().toLowerCase();
-  const visibleOptions = normalizedSearch
-    ? options.filter((item) => item.value.toLowerCase().includes(normalizedSearch))
-    : options;
-
-  clearElement(elements.filterOptions);
-  elements.columnFilterPanel.classList.toggle('hidden', options.length === 0);
-
-  if (!options.length) {
-    return;
-  }
-
-  const selectedCount = state.selectedFilterValues.size;
-  elements.filterSummary.textContent = selectedCount
-    ? `${formatNumber(selectedCount)} selected. Filtering is active.`
-    : `No filter selected. Showing all ${formatNumber(options.length)} values.`;
-
-  visibleOptions.forEach((item) => {
-    const label = document.createElement('label');
-    label.className = 'filter-option';
-
-    const checkbox = document.createElement('input');
-    checkbox.type = 'checkbox';
-    checkbox.value = item.value;
-    checkbox.checked = state.selectedFilterValues.has(item.value);
-
-    const valueText = createTextElement('span', 'filter-value', item.value);
-    const countText = createTextElement('span', 'filter-count', formatNumber(item.count));
-
-    label.append(checkbox, valueText, countText);
-    elements.filterOptions.append(label);
   });
 }
 
@@ -345,315 +250,147 @@ function createMetric(label, value) {
   return item;
 }
 
-function renderNumericColumn(column, stats) {
-  const card = document.createElement('article');
-  card.className = 'stat-card full-stat-card';
-  card.append(createTextElement('h3', '', column));
-
-  const list = document.createElement('div');
-  list.className = 'stat-list';
-  list.append(createMetric('Total', formatNumber(stats.sum)));
-  list.append(createMetric('Average', formatNumber(stats.average)));
-  list.append(createMetric('Maximum', formatNumber(stats.max)));
-  list.append(createMetric('Minimum', formatNumber(stats.min)));
-  list.append(createMetric('Numeric values', formatNumber(stats.count)));
-
-  card.append(list);
-  elements.selectedColumnStats.append(card);
+function renderNumericColumn(column, stats, details) {
+  elements.selectedColumnStats.append(
+    createMetric('Rows', formatNumber(details.nonEmptyCount)),
+    createMetric('Blank', formatNumber(details.emptyCount)),
+    createMetric('Total', formatNumber(stats?.sum)),
+    createMetric('Average', formatNumber(stats?.average)),
+    createMetric('Maximum', formatNumber(stats?.max)),
+    createMetric('Minimum', formatNumber(stats?.min))
+  );
 }
 
-function renderTextColumn(column, stats) {
-  const card = document.createElement('article');
-  card.className = 'stat-card full-stat-card';
-  card.append(createTextElement('h3', '', column));
-  card.append(createTextElement('p', 'muted-text', `Unique values: ${formatNumber(stats.uniqueCount)}`));
+function renderTextColumn(stats, details) {
+  elements.selectedColumnStats.append(
+    createMetric('Rows', formatNumber(details.nonEmptyCount)),
+    createMetric('Blank', formatNumber(details.emptyCount)),
+    createMetric('Unique Values', formatNumber(stats?.uniqueCount))
+  );
 
-  const list = document.createElement('div');
-  list.className = 'top-values';
+  const topValues = document.createElement('div');
+  topValues.className = 'top-values full-width';
 
-  if (!stats.topValues.length) {
-    list.append(createTextElement('p', 'muted-text', 'No text values found.'));
-  } else {
-    stats.topValues.forEach((item) => {
-      const row = document.createElement('div');
-      row.className = 'value-row';
-      row.append(createTextElement('strong', '', item.value));
-      row.append(createTextElement('span', '', formatNumber(item.count)));
-      list.append(row);
-    });
+  (stats?.topValues || []).forEach((item) => {
+    const row = document.createElement('div');
+    row.className = 'value-row';
+    row.append(createTextElement('strong', '', item.value));
+    row.append(createTextElement('span', '', formatNumber(item.count)));
+    topValues.append(row);
+  });
+
+  if (topValues.childElementCount) {
+    elements.selectedColumnStats.append(topValues);
   }
-
-  card.append(list);
-  elements.selectedColumnStats.append(card);
 }
 
-function renderDateColumn(column, stats) {
-  const card = document.createElement('article');
-  card.className = 'stat-card full-stat-card';
-  card.append(createTextElement('h3', '', column));
-
-  const list = document.createElement('div');
-  list.className = 'stat-list';
-  list.append(createMetric('Oldest date', formatDateTime(stats.oldest)));
-  list.append(createMetric('Latest date', formatDateTime(stats.latest)));
-  list.append(createMetric('Date records', formatNumber(stats.count)));
-  list.append(createMetric('Months', formatNumber(Object.keys(stats.monthlyCounts || {}).length)));
-
-  card.append(list);
-  elements.selectedColumnStats.append(card);
+function renderDateColumn(stats, details) {
+  elements.selectedColumnStats.append(
+    createMetric('Rows', formatNumber(details.nonEmptyCount)),
+    createMetric('Blank', formatNumber(details.emptyCount)),
+    createMetric('Oldest', formatDate(stats?.oldest)),
+    createMetric('Latest', formatDate(stats?.latest)),
+    createMetric('Months', formatNumber(Object.keys(stats?.monthlyCounts || {}).length))
+  );
 }
 
-function destroyCharts() {
-  state.chartInstances.forEach((chart) => chart.destroy());
-  state.chartInstances = [];
+function destroyChart() {
+  if (state.chartInstance) {
+    state.chartInstance.destroy();
+    state.chartInstance = null;
+  }
 }
 
-function getDatasetStyle(chartType, index = 0) {
-  if (chartType === 'doughnut' || chartType === 'pie') {
+function getChartData(sheetStatistics, column) {
+  const details = sheetStatistics.columnTypes.details[column];
+
+  if (details.type === 'numeric') {
+    const stats = sheetStatistics.numericStats[column];
     return {
-      backgroundColor: chartColors,
-      borderColor: '#ffffff',
-      borderWidth: 2
+      title: column,
+      labels: ['Total', 'Average', 'Maximum', 'Minimum'],
+      data: [stats?.sum || 0, stats?.average || 0, stats?.max || 0, stats?.min || 0]
     };
   }
 
+  if (details.type === 'date') {
+    const entries = Object.entries(sheetStatistics.dateStats[column]?.monthlyCounts || {})
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-8);
+
+    return {
+      title: column,
+      labels: entries.map(([month]) => month),
+      data: entries.map(([, count]) => count)
+    };
+  }
+
+  const topValues = sheetStatistics.textStats[column]?.topValues || [];
   return {
-    backgroundColor: chartColors[index % chartColors.length],
-    borderColor: chartColors[index % chartColors.length],
-    borderWidth: 1
+    title: column,
+    labels: topValues.map((item) => (item.value.length > 30 ? `${item.value.slice(0, 27)}...` : item.value)),
+    data: topValues.map((item) => item.count)
   };
 }
 
-function buildColumnCharts(sheetStatistics, column) {
-  const type = sheetStatistics.columnTypes.details[column]?.type;
+function renderChart(sheetStatistics, column) {
+  destroyChart();
 
-  if (type === 'text') {
-    const stats = sheetStatistics.textStats[column];
-    if (!stats?.topValues?.length) {
-      return [];
-    }
+  const chartData = getChartData(sheetStatistics, column);
+  elements.chartTitle.textContent = chartData.title;
 
-    const labels = stats.topValues.map((item) => item.value.length > 48 ? `${item.value.slice(0, 45)}...` : item.value);
-    const data = stats.topValues.map((item) => item.count);
-    const total = data.reduce((sum, value) => sum + value, 0);
-    let runningTotal = 0;
-    const cumulativePercent = data.map((value) => {
-      runningTotal += value;
-      return total ? Math.round((runningTotal / total) * 1000) / 10 : 0;
-    });
-
-    return [
-      {
-        type: 'bar',
-        title: `${column} Top Values`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'doughnut',
-        title: `${column} Share`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'line',
-        title: `${column} Cumulative Share`,
-        labels,
-        data: cumulativePercent,
-        label: column,
-        percentChart: true
-      }
-    ];
-  }
-
-  if (type === 'numeric') {
-    const stats = sheetStatistics.numericStats[column];
-    if (!stats || stats.count === 0) {
-      return [];
-    }
-
-    const labels = ['Total', 'Average', 'Maximum', 'Minimum'];
-    const data = [stats.sum || 0, stats.average || 0, stats.max || 0, stats.min || 0];
-
-    return [
-      {
-        type: 'bar',
-        title: `${column} Metrics`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'doughnut',
-        title: `${column} Metrics Share`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'radar',
-        title: `${column} Metrics Radar`,
-        labels,
-        data,
-        label: column
-      }
-    ];
-  }
-
-  if (type === 'date') {
-    const stats = sheetStatistics.dateStats[column];
-    const entries = Object.entries(stats?.monthlyCounts || {}).sort((a, b) => a[0].localeCompare(b[0]));
-
-    if (!entries.length) {
-      return [];
-    }
-
-    const labels = entries.map(([month]) => month);
-    const data = entries.map(([, count]) => count);
-
-    return [
-      {
-        type: 'bar',
-        title: `${column} by Month`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'line',
-        title: `${column} Monthly Trend`,
-        labels,
-        data,
-        label: column
-      },
-      {
-        type: 'doughnut',
-        title: `${column} Monthly Share`,
-        labels,
-        data,
-        label: column
-      }
-    ];
-  }
-
-  return [];
-}
-
-function renderColumnChart(sheetStatistics, column) {
-  destroyCharts();
-  clearElement(elements.chartsGrid);
-
-  const chartDefinitions = buildColumnCharts(sheetStatistics, column);
-
-  if (!chartDefinitions.length) {
-    elements.chartsPanel.classList.add('hidden');
+  if (!chartData.labels.length) {
     return;
   }
 
-  elements.chartTitle.textContent = `${column} Charts`;
-  elements.chartsPanel.classList.remove('hidden');
-
-  chartDefinitions.forEach((chartDefinition, index) => {
-    const card = document.createElement('article');
-    card.className = 'chart-card';
-    card.append(createTextElement('h3', '', chartDefinition.title));
-
-    const canvas = document.createElement('canvas');
-    card.append(canvas);
-    elements.chartsGrid.append(card);
-
-    const chart = new Chart(canvas, {
-      type: chartDefinition.type,
-      data: {
-        labels: chartDefinition.labels,
-        datasets: [
-          {
-            label: chartDefinition.percentChart ? 'Cumulative %' : chartDefinition.label,
-            data: chartDefinition.data,
-            ...getDatasetStyle(chartDefinition.type, index),
-            ...(chartDefinition.percentChart
-              ? {
-                  borderColor: '#10a37f',
-                  backgroundColor: 'rgba(16, 163, 127, 0.12)',
-                  borderWidth: 3,
-                  tension: 0.35,
-                  fill: true
-                }
-              : {})
-          }
-        ]
+  state.chartInstance = new Chart(elements.chartCanvas, {
+    type: 'bar',
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: column,
+          data: chartData.data,
+          backgroundColor: chartColors[0],
+          borderColor: chartColors[0],
+          borderWidth: 1
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      locale: 'en-US',
+      plugins: {
+        legend: {
+          display: false
+        }
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        locale: 'en-US',
-        indexAxis: chartDefinition.indexAxis || 'x',
-        plugins: {
-          legend: {
-            position: 'bottom'
+      scales: {
+        x: {
+          ticks: {
+            font: {
+              family: 'Tahoma, Arial, sans-serif'
+            }
           }
         },
-        scales: chartDefinition.percentChart
-          ? {
-              x: { ticks: { font: { family: 'Tahoma, Arial, sans-serif' } } },
-              y: {
-                beginAtZero: true,
-                max: 100,
-                ticks: {
-                  callback: (value) => `${value}%`,
-                  font: { family: 'Tahoma, Arial, sans-serif' }
-                }
-              }
+        y: {
+          beginAtZero: true,
+          ticks: {
+            font: {
+              family: 'Tahoma, Arial, sans-serif'
             }
-          : chartDefinition.type === 'doughnut' || chartDefinition.type === 'pie' || chartDefinition.type === 'radar'
-          ? {}
-          : {
-              x: { ticks: { font: { family: 'Tahoma, Arial, sans-serif' } } },
-              y: { beginAtZero: true, ticks: { font: { family: 'Tahoma, Arial, sans-serif' } } }
-            }
+          }
+        }
       }
-    });
-
-    state.chartInstances.push(chart);
+    }
   });
 }
 
-async function fetchFilteredColumnStatistics(sheetStatistics, column) {
-  const selectedValues = getSelectedFilterValuesArray();
-
-  if (!selectedValues.length) {
-    return sheetStatistics;
-  }
-
-  const response = await fetch('/api/column-statistics', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      sheet: sheetStatistics.sheetName,
-      column,
-      values: selectedValues
-    })
-  });
-
-  const payload = await response.json();
-
-  if (!response.ok) {
-    throw new Error(payload.message || 'Could not apply the filter.');
-  }
-
-  return payload.statistics;
-}
-
-async function renderSelectedColumn() {
+function renderSelectedColumn() {
   const sheetStatistics = getActiveSheetStats();
   clearElement(elements.selectedColumnStats);
-  destroyCharts();
-  clearElement(elements.chartsGrid);
-  elements.chartsPanel.classList.add('hidden');
+  destroyChart();
 
   if (!sheetStatistics || !state.selectedColumn) {
     elements.selectedColumnPanel.classList.add('hidden');
@@ -669,47 +406,35 @@ async function renderSelectedColumn() {
   }
 
   elements.selectedColumnTitle.textContent = column;
-  renderFilterOptions(sheetStatistics, column);
 
-  const filteredStatistics = await fetchFilteredColumnStatistics(sheetStatistics, column);
-  const filteredDetails = filteredStatistics.columnTypes.details[column] || details;
-  const selectedFilterCount = state.selectedFilterValues.size;
-
-  elements.selectedColumnMeta.textContent =
-    `Type: ${filteredDetails.type}. Rows: ${formatNumber(filteredStatistics.fileInfo.rowCount)}. ` +
-    `Non-empty: ${formatNumber(filteredDetails.nonEmptyCount)}. Blank: ${formatNumber(filteredDetails.emptyCount)}.` +
-    (selectedFilterCount ? ` Filtered by ${formatNumber(selectedFilterCount)} value(s).` : '');
-
-  if (filteredDetails.type === 'numeric') {
-    renderNumericColumn(column, filteredStatistics.numericStats[column]);
-  } else if (filteredDetails.type === 'date') {
-    renderDateColumn(column, filteredStatistics.dateStats[column]);
+  if (details.type === 'numeric') {
+    renderNumericColumn(column, sheetStatistics.numericStats[column], details);
+  } else if (details.type === 'date') {
+    renderDateColumn(sheetStatistics.dateStats[column], details);
   } else {
-    renderTextColumn(column, filteredStatistics.textStats[column]);
+    renderTextColumn(sheetStatistics.textStats[column], details);
   }
 
-  renderColumnChart(filteredStatistics, column);
+  renderChart(sheetStatistics, column);
   elements.selectedColumnPanel.classList.remove('hidden');
 }
 
-async function renderActiveSheet() {
+function renderActiveSheet() {
   const sheetStatistics = getActiveSheetStats();
 
-  renderExecutiveSummary();
+  renderFirstSheet();
 
   if (!sheetStatistics) {
     clearElement(elements.sheetTabs);
-  clearElement(elements.columnsList);
-  elements.selectedColumnPanel.classList.add('hidden');
-    elements.columnFilterPanel.classList.add('hidden');
-  elements.chartsPanel.classList.add('hidden');
+    clearElement(elements.columnsList);
+    elements.selectedColumnPanel.classList.add('hidden');
     return;
   }
 
   state.activeSheet = sheetStatistics.sheetName;
-  renderSheetTabs(state.statistics);
+  renderSheetTabs();
   renderColumnButtons(sheetStatistics);
-  await renderSelectedColumn();
+  renderSelectedColumn();
 }
 
 async function loadDashboard() {
@@ -724,23 +449,19 @@ async function loadDashboard() {
       throw new Error('Could not load statistics.');
     }
 
-    const statistics = await response.json();
-    state.statistics = statistics;
+    state.statistics = await response.json();
 
-    if (!statistics.fileInfo.sheetCount || !statistics.sheets.length) {
+    if (!state.statistics.sheets.length) {
       elements.emptyState.classList.remove('hidden');
       return;
     }
 
     if (!getDetailSheets().some((sheet) => sheet.sheetName === state.activeSheet)) {
-    state.activeSheet =
-        getDetailSheets().find((sheet) => sheet.fileInfo.rowCount > 0)?.sheetName || getDetailSheets()[0]?.sheetName || '';
+      state.activeSheet = getDetailSheets()[0]?.sheetName || '';
     }
 
     state.selectedColumn = '';
-    state.selectedFilterValues = new Set();
-    state.filterSearch = '';
-    await renderActiveSheet();
+    renderActiveSheet();
     elements.dashboardContent.classList.remove('hidden');
   } catch (error) {
     setMessage(error.message || 'An error occurred while loading the dashboard.', 'error');
@@ -773,7 +494,6 @@ async function handleUpload(event) {
   event.preventDefault();
 
   const file = elements.excelFile.files[0];
-
   if (!file) {
     setUploadStatus('Please choose an Excel file.', 'error');
     return;
@@ -790,14 +510,13 @@ async function handleUpload(event) {
 
   elements.uploadButton.disabled = true;
   elements.uploadButton.textContent = 'Uploading...';
-  setUploadStatus('Uploading and analyzing all sheets...', '');
+  setUploadStatus('Uploading and analyzing...', '');
 
   try {
     const response = await fetch('/api/upload', {
       method: 'POST',
       body: formData
     });
-
     const payload = await response.json();
 
     if (!response.ok) {
@@ -805,14 +524,9 @@ async function handleUpload(event) {
     }
 
     setUploadStatus(payload.message, 'success');
-    setMessage(
-      `${payload.message} ${formatNumber(payload.sheetCount)} sheets and ${formatNumber(payload.rowCount)} rows loaded.`,
-      'success'
-    );
+    setMessage('Data updated successfully.', 'success');
     state.activeSheet = '';
     state.selectedColumn = '';
-    state.selectedFilterValues = new Set();
-    state.filterSearch = '';
     await loadDashboard();
     closeUploadModal();
   } catch (error) {
@@ -837,7 +551,7 @@ function bindEvents() {
     }
   });
 
-  elements.sheetTabs.addEventListener('click', async (event) => {
+  elements.sheetTabs.addEventListener('click', (event) => {
     const button = event.target.closest('.sheet-tab');
     if (!button || button.dataset.sheet === state.activeSheet) {
       return;
@@ -845,14 +559,7 @@ function bindEvents() {
 
     state.activeSheet = button.dataset.sheet;
     state.selectedColumn = '';
-    state.selectedFilterValues = new Set();
-    state.filterSearch = '';
-
-    try {
-      await renderActiveSheet();
-    } catch (error) {
-      setMessage(error.message, 'error');
-    }
+    renderActiveSheet();
   });
 
   elements.columnsList.addEventListener('click', (event) => {
@@ -862,50 +569,8 @@ function bindEvents() {
     }
 
     state.selectedColumn = button.dataset.column;
-    state.selectedFilterValues = new Set();
-    state.filterSearch = '';
-    elements.filterSearch.value = '';
-    const sheetStatistics = getActiveSheetStats();
-    renderColumnButtons(sheetStatistics);
-    renderSelectedColumn().catch((error) => setMessage(error.message, 'error'));
-  });
-
-  elements.filterOptions.addEventListener('change', (event) => {
-    const checkbox = event.target.closest('input[type="checkbox"]');
-    if (!checkbox) {
-      return;
-    }
-
-    if (checkbox.checked) {
-      state.selectedFilterValues.add(checkbox.value);
-    } else {
-      state.selectedFilterValues.delete(checkbox.value);
-    }
-
-    renderSelectedColumn().catch((error) => setMessage(error.message, 'error'));
-  });
-
-  elements.filterSearch.addEventListener('input', (event) => {
-    state.filterSearch = event.target.value;
-    const sheetStatistics = getActiveSheetStats();
-    renderFilterOptions(sheetStatistics, state.selectedColumn);
-  });
-
-  elements.selectAllFilters.addEventListener('click', () => {
-    const sheetStatistics = getActiveSheetStats();
-    const options = getFilterOptions(sheetStatistics, state.selectedColumn);
-    const normalizedSearch = state.filterSearch.trim().toLowerCase();
-    const valuesToSelect = normalizedSearch
-      ? options.filter((item) => item.value.toLowerCase().includes(normalizedSearch)).map((item) => item.value)
-      : options.map((item) => item.value);
-
-    valuesToSelect.forEach((value) => state.selectedFilterValues.add(value));
-    renderSelectedColumn().catch((error) => setMessage(error.message, 'error'));
-  });
-
-  elements.clearFilters.addEventListener('click', () => {
-    state.selectedFilterValues = new Set();
-    renderSelectedColumn().catch((error) => setMessage(error.message, 'error'));
+    renderColumnButtons(getActiveSheetStats());
+    renderSelectedColumn();
   });
 }
 
