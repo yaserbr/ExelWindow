@@ -2,7 +2,7 @@ const state = {
   statistics: null,
   activeSheet: '',
   selectedColumn: '',
-  chartInstance: null
+  chartInstances: []
 };
 
 const elements = {
@@ -18,8 +18,10 @@ const elements = {
   selectedColumnPanel: document.getElementById('selectedColumnPanel'),
   selectedColumnTitle: document.getElementById('selectedColumnTitle'),
   selectedColumnStats: document.getElementById('selectedColumnStats'),
-  chartTitle: document.getElementById('chartTitle'),
-  chartCanvas: document.getElementById('chartCanvas'),
+  barChartTitle: document.getElementById('barChartTitle'),
+  barChartCanvas: document.getElementById('barChartCanvas'),
+  doughnutChartTitle: document.getElementById('doughnutChartTitle'),
+  doughnutChartCanvas: document.getElementById('doughnutChartCanvas'),
   openUploadModal: document.getElementById('openUploadModal'),
   uploadModal: document.getElementById('uploadModal'),
   uploadForm: document.getElementById('uploadForm'),
@@ -294,11 +296,9 @@ function renderDateColumn(stats, details) {
   );
 }
 
-function destroyChart() {
-  if (state.chartInstance) {
-    state.chartInstance.destroy();
-    state.chartInstance = null;
-  }
+function destroyCharts() {
+  state.chartInstances.forEach((chart) => chart.destroy());
+  state.chartInstances = [];
 }
 
 function getChartData(sheetStatistics, column) {
@@ -334,16 +334,17 @@ function getChartData(sheetStatistics, column) {
 }
 
 function renderChart(sheetStatistics, column) {
-  destroyChart();
+  destroyCharts();
 
   const chartData = getChartData(sheetStatistics, column);
-  elements.chartTitle.textContent = chartData.title;
+  elements.barChartTitle.textContent = chartData.title;
+  elements.doughnutChartTitle.textContent = `${chartData.title} Share`;
 
   if (!chartData.labels.length) {
     return;
   }
 
-  state.chartInstance = new Chart(elements.chartCanvas, {
+  const barChart = new Chart(elements.barChartCanvas, {
     type: 'bar',
     data: {
       labels: chartData.labels,
@@ -385,12 +386,46 @@ function renderChart(sheetStatistics, column) {
       }
     }
   });
+
+  const doughnutChart = new Chart(elements.doughnutChartCanvas, {
+    type: 'doughnut',
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: column,
+          data: chartData.data,
+          backgroundColor: chartColors,
+          borderColor: '#ffffff',
+          borderWidth: 2
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      locale: 'en-US',
+      plugins: {
+        legend: {
+          position: 'bottom',
+          labels: {
+            boxWidth: 12,
+            font: {
+              family: 'Tahoma, Arial, sans-serif'
+            }
+          }
+        }
+      }
+    }
+  });
+
+  state.chartInstances.push(barChart, doughnutChart);
 }
 
 function renderSelectedColumn() {
   const sheetStatistics = getActiveSheetStats();
   clearElement(elements.selectedColumnStats);
-  destroyChart();
+  destroyCharts();
 
   if (!sheetStatistics || !state.selectedColumn) {
     elements.selectedColumnPanel.classList.add('hidden');

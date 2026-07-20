@@ -3,14 +3,13 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Excel Statistics Dashboard</title>
+  <title>4B Release Production Verification</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
   <div class="app-shell">
     <header class="page-header">
-      <h1>Excel Statistics Dashboard</h1>
-      <button id="openUploadModal" class="admin-button" type="button">Upload New Excel</button>
+      <h1>4B Release Production Verification</h1>
     </header>
 
     <div id="messageBox" class="message-box" role="status" aria-live="polite"></div>
@@ -53,11 +52,24 @@
             <h2 id="selectedColumnTitle">Column</h2>
           </div>
           <div id="selectedColumnStats" class="stats-grid"></div>
-          <article class="chart-card single-chart-card">
-            <h3 id="chartTitle">Chart</h3>
-            <canvas id="chartCanvas"></canvas>
-          </article>
+          <div id="chartsGrid" class="charts-grid">
+            <article class="chart-card">
+              <h3 id="barChartTitle">Chart</h3>
+              <canvas id="barChartCanvas"></canvas>
+            </article>
+            <article class="chart-card">
+              <h3 id="doughnutChartTitle">Share</h3>
+              <canvas id="doughnutChartCanvas"></canvas>
+            </article>
+          </div>
         </section>
+
+        <footer class="page-footer">
+          <button id="openUploadModal" class="upload-link-button" type="button" aria-label="Upload New Excel">
+            <span aria-hidden="true">+</span>
+            Upload New Excel
+          </button>
+        </footer>
       </div>
     </main>
   </div>
