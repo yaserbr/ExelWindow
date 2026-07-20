@@ -89,7 +89,7 @@ function getFirstWorkbookSheet() {
 }
 
 function getDetailSheets() {
-  return (state.statistics?.sheets || []).slice(1, 4);
+  return (state.statistics?.sheets || []).slice(1);
 }
 
 function getActiveSheetStats() {

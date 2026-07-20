@@ -333,7 +333,7 @@ function parseWorkbook(buffer, originalName) {
     throw error;
   }
 
-  const sheets = workbook.SheetNames.slice(0, 4).map((sheetName, index) => ({
+  const sheets = workbook.SheetNames.map((sheetName, index) => ({
     ...parseSheet(workbook, sheetName),
     role: index === 0 ? 'first' : 'detail'
   }));
