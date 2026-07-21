@@ -2,6 +2,8 @@ const state = {
   statistics: null,
   activeSheet: '',
   selectedColumn: '',
+  columnFilters: {},
+  visibleFilterColumns: {},
   chartInstances: []
 };
 
@@ -15,10 +17,14 @@ const elements = {
   lastUpdateTime: document.getElementById('lastUpdateTime'),
   firstSheetTables: document.getElementById('firstSheetTables'),
   sheetTabs: document.getElementById('sheetTabs'),
+  dataSheetTitle: document.getElementById('dataSheetTitle'),
   columnsList: document.getElementById('columnsList'),
+  dataFilters: document.getElementById('dataFilters'),
+  dataRowCount: document.getElementById('dataRowCount'),
+  clearDataFilters: document.getElementById('clearDataFilters'),
+  dataTableContainer: document.getElementById('dataTableContainer'),
   selectedColumnPanel: document.getElementById('selectedColumnPanel'),
   selectedColumnTitle: document.getElementById('selectedColumnTitle'),
-  selectedColumnStats: document.getElementById('selectedColumnStats'),
   barChartTitle: document.getElementById('barChartTitle'),
   barChartCanvas: document.getElementById('barChartCanvas'),
   doughnutChartTitle: document.getElementById('doughnutChartTitle'),
@@ -133,6 +139,35 @@ function getActiveSheetStats() {
   return detailSheets.find((sheet) => sheet.sheetName === state.activeSheet) || detailSheets[0] || null;
 }
 
+function getActiveFilters() {
+  if (!state.columnFilters[state.activeSheet]) {
+    state.columnFilters[state.activeSheet] = {};
+  }
+
+  return state.columnFilters[state.activeSheet];
+}
+
+function getVisibleFilterColumns(sheetStatistics = getActiveSheetStats()) {
+  if (!state.activeSheet || !sheetStatistics) {
+    return [];
+  }
+
+  if (!state.visibleFilterColumns[state.activeSheet]?.length && state.selectedColumn) {
+    state.visibleFilterColumns[state.activeSheet] = [state.selectedColumn];
+  }
+
+  const availableColumns = new Set(sheetStatistics.columns || []);
+  return (state.visibleFilterColumns[state.activeSheet] || []).filter((column) => availableColumns.has(column));
+}
+
+function setVisibleFilterColumns(columns) {
+  if (!state.activeSheet) {
+    return;
+  }
+
+  state.visibleFilterColumns[state.activeSheet] = [...new Set(columns.filter(Boolean))];
+}
+
 function isBlankRow(row) {
   return !row || row.every((cell) => String(cell || '').trim() === '');
 }
@@ -179,7 +214,38 @@ function splitIntoTables(rows) {
     tables.push(currentTable);
   }
 
-  return tables;
+  return tables.flatMap(splitTableByBlankColumns);
+}
+
+function getUsedColumnRuns(rows) {
+  const maxColumns = rows.reduce((max, row) => Math.max(max, row.length), 0);
+  const runs = [];
+  let runStart = null;
+
+  for (let index = 0; index < maxColumns; index += 1) {
+    const hasValue = rows.some((row) => String(row[index] || '').trim() !== '');
+
+    if (hasValue && runStart === null) {
+      runStart = index;
+    } else if (!hasValue && runStart !== null) {
+      runs.push({ start: runStart, end: index - 1 });
+      runStart = null;
+    }
+  }
+
+  if (runStart !== null) {
+    runs.push({ start: runStart, end: maxColumns - 1 });
+  }
+
+  return runs;
+}
+
+function splitTableByBlankColumns(rows) {
+  const columnRuns = getUsedColumnRuns(rows);
+
+  return columnRuns
+    .map((run) => trimRows(rows.map((row) => row.slice(run.start, run.end + 1))))
+    .filter((tableRows) => tableRows.some((row) => !isBlankRow(row)));
 }
 
 function compactTableRows(rows) {
@@ -214,15 +280,21 @@ function renderFirstSheet() {
     const titleText = hasStandaloneTitle ? String(firstRowValues[0]).trim() : '';
     const shouldShowTitle = titleText && titleText.toLowerCase() !== firstSheet.sheetName.toLowerCase();
     const tableRows = hasStandaloneTitle ? rows.slice(1) : rows;
+    const tableColumnCount = tableRows.reduce((max, row) => Math.max(max, row.length), 0);
+
+    if (!tableColumnCount) {
+      return;
+    }
+
     const tableCard = document.createElement('article');
-    tableCard.className = 'mini-table-card';
+    tableCard.className = `mini-table-card${tableColumnCount >= 10 ? ' mini-table-card-wide' : ''}`;
 
     if (shouldShowTitle) {
       tableCard.append(createTextElement('h3', '', titleText));
     }
 
     const table = document.createElement('table');
-    table.className = 'mini-table';
+    table.className = `mini-table${tableColumnCount >= 10 ? ' mini-table-wide' : ' mini-table-compact'}`;
     const headerRow = tableRows[0] || [];
 
     tableRows.forEach((row, rowIndex) => {
@@ -283,55 +355,284 @@ function renderColumnButtons(sheetStatistics) {
   });
 }
 
-function createMetric(label, value) {
-  const item = document.createElement('div');
-  item.append(createTextElement('span', '', label));
-  item.append(createTextElement('strong', '', value));
-  return item;
+function formatDataValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return String(value);
 }
 
-function renderNumericColumn(column, stats, details) {
-  elements.selectedColumnStats.append(
-    createMetric('Rows', formatNumber(details.nonEmptyCount)),
-    createMetric('Blank', formatNumber(details.emptyCount)),
-    createMetric('Total', formatNumber(stats?.sum)),
-    createMetric('Average', formatNumber(stats?.average)),
-    createMetric('Maximum', formatNumber(stats?.max)),
-    createMetric('Minimum', formatNumber(stats?.min))
+function getDataColumnWidth(column, rows) {
+  const sampleRows = rows.slice(0, 120);
+  const cellValues = sampleRows.map((row) => formatDataValue(row[column]));
+  const longestCellLength = cellValues.reduce((max, value) => Math.max(max, value.length), 0);
+  const headerLength = column.length;
+  const longestValueLength = Math.max(headerLength, longestCellLength);
+  const hasLongText = cellValues.some((value) => value.length > 34 || (/\s/.test(value) && value.length > 20));
+
+  if (longestCellLength <= 3) {
+    return Math.min(64, Math.max(46, headerLength * 5 + 14));
+  }
+
+  if (longestValueLength <= 8 && !hasLongText) {
+    return Math.min(76, Math.max(54, longestValueLength * 5 + 16));
+  }
+
+  if (longestValueLength <= 12 && !hasLongText) {
+    return Math.min(88, Math.max(66, longestValueLength * 5 + 16));
+  }
+
+  if (longestValueLength <= 22 && !hasLongText) {
+    return Math.min(120, Math.max(88, longestValueLength * 4.8 + 18));
+  }
+
+  const normalizedColumn = column.toLowerCase();
+  let maxWidth = 190;
+
+  if (normalizedColumn.includes('description') || normalizedColumn.includes('summary')) {
+    maxWidth = 220;
+  } else if (normalizedColumn.includes('comment')) {
+    maxWidth = 150;
+  } else if (normalizedColumn.includes('addon') || normalizedColumn.includes('covered')) {
+    maxWidth = 180;
+  }
+
+  return Math.min(maxWidth, Math.max(120, longestValueLength * 4.8));
+}
+
+function isFlexibleDataColumn(column) {
+  const normalizedColumn = column.toLowerCase();
+
+  return (
+    normalizedColumn.includes('description') ||
+    normalizedColumn.includes('comment') ||
+    normalizedColumn.includes('addon') ||
+    normalizedColumn.includes('covered') ||
+    normalizedColumn.includes('function') ||
+    normalizedColumn.includes('assigned') ||
+    normalizedColumn.includes('category') ||
+    normalizedColumn.includes('channel')
   );
 }
 
-function renderTextColumn(stats, details) {
-  elements.selectedColumnStats.append(
-    createMetric('Rows', formatNumber(details.nonEmptyCount)),
-    createMetric('Blank', formatNumber(details.emptyCount)),
-    createMetric('Unique Values', formatNumber(stats?.uniqueCount))
-  );
+function getDataColumnWidths(columns, rows) {
+  const baseWidths = columns.map((column) => getDataColumnWidth(column, rows));
+  const availableWidth = Math.max(0, elements.dataTableContainer.clientWidth - 2);
+  const totalBaseWidth = baseWidths.reduce((total, width) => total + width, 0);
 
-  const topValues = document.createElement('div');
-  topValues.className = 'top-values full-width';
+  if (!availableWidth || totalBaseWidth >= availableWidth) {
+    return baseWidths;
+  }
 
-  (stats?.topValues || []).forEach((item) => {
-    const row = document.createElement('div');
-    row.className = 'value-row';
-    row.append(createTextElement('strong', '', item.value));
-    row.append(createTextElement('span', '', formatNumber(item.count)));
-    topValues.append(row);
+  const extraWidth = availableWidth - totalBaseWidth;
+  const flexibleIndexes = columns.reduce((indexes, column, index) => {
+    if (isFlexibleDataColumn(column)) {
+      indexes.push(index);
+    }
+    return indexes;
+  }, []);
+  const targetIndexes = flexibleIndexes.length ? flexibleIndexes : columns.map((column, index) => index);
+  const extraPerColumn = extraWidth / targetIndexes.length;
+
+  return baseWidths.map((width, index) => (targetIndexes.includes(index) ? width + extraPerColumn : width));
+}
+
+function getColumnFilterOptions(rows, column) {
+  const values = new Set();
+  let hasBlank = false;
+
+  rows.forEach((row) => {
+    const value = formatDataValue(row[column]);
+
+    if (!value) {
+      hasBlank = true;
+      return;
+    }
+
+    values.add(value);
   });
 
-  if (topValues.childElementCount) {
-    elements.selectedColumnStats.append(topValues);
+  const sortedValues = [...values].sort((a, b) =>
+    a.localeCompare(b, 'en', {
+      numeric: true,
+      sensitivity: 'base'
+    })
+  );
+
+  return {
+    hasBlank,
+    values: sortedValues
+  };
+}
+
+function applyDataFilters() {
+  const sheetStatistics = getActiveSheetStats();
+  const columns = sheetStatistics?.columns || [];
+  const filters = getActiveFilters();
+  const appliedFilterColumns = getVisibleFilterColumns(sheetStatistics);
+  const rows = Array.from(elements.dataTableContainer.querySelectorAll('.data-table tbody tr'));
+  let visibleCount = 0;
+
+  rows.forEach((row) => {
+    const cells = Array.from(row.children);
+    const isVisible = appliedFilterColumns.every((column) => {
+      const index = columns.indexOf(column);
+      const filterValue = String(filters[column] || '');
+
+      if (!filterValue) {
+        return true;
+      }
+
+      const cellValue = String(cells[index]?.textContent || '');
+      return filterValue === '__BLANK__' ? cellValue === '' : cellValue === filterValue;
+    });
+
+    row.classList.toggle('hidden', !isVisible);
+    if (isVisible) {
+      visibleCount += 1;
+    }
+  });
+
+  if (elements.dataRowCount && sheetStatistics) {
+    elements.dataRowCount.textContent = `Showing ${formatNumber(visibleCount)} of ${formatNumber(sheetStatistics.rows.length)} rows`;
   }
 }
 
-function renderDateColumn(stats, details) {
-  elements.selectedColumnStats.append(
-    createMetric('Rows', formatNumber(details.nonEmptyCount)),
-    createMetric('Blank', formatNumber(details.emptyCount)),
-    createMetric('Oldest', formatDate(stats?.oldest)),
-    createMetric('Latest', formatDate(stats?.latest)),
-    createMetric('Months', formatNumber(Object.keys(stats?.monthlyCounts || {}).length))
-  );
+function renderDataFilters(sheetStatistics) {
+  clearElement(elements.dataFilters);
+
+  const columns = sheetStatistics?.columns || [];
+  const rows = sheetStatistics?.rows || [];
+  const filters = getActiveFilters();
+  const visibleColumns = getVisibleFilterColumns(sheetStatistics);
+
+  visibleColumns.forEach((column, index) => {
+    const selectedValue = filters[column] || '';
+    const filterControl = document.createElement('div');
+    filterControl.className = 'filter-control';
+
+    const select = document.createElement('select');
+    select.className = 'filter-select';
+    select.dataset.column = column;
+
+    const allOption = document.createElement('option');
+    allOption.value = '';
+    allOption.textContent = `${column}: All`;
+    select.append(allOption);
+
+    const options = getColumnFilterOptions(rows, column);
+
+    if (options.hasBlank) {
+      const blankOption = document.createElement('option');
+      blankOption.value = '__BLANK__';
+      blankOption.textContent = `${column}: (Blank)`;
+      select.append(blankOption);
+    }
+
+    options.values.forEach((value) => {
+      const option = document.createElement('option');
+      option.value = value;
+      option.textContent = `${column}: ${value}`;
+      select.append(option);
+    });
+
+    select.value = selectedValue;
+    filterControl.append(select);
+
+    if (index > 0) {
+      const removeButton = document.createElement('button');
+      removeButton.type = 'button';
+      removeButton.className = 'remove-filter-button';
+      removeButton.dataset.column = column;
+      removeButton.textContent = 'x';
+      removeButton.setAttribute('aria-label', `Remove ${column} filter`);
+      filterControl.append(removeButton);
+    }
+
+    elements.dataFilters.append(filterControl);
+  });
+
+  const remainingColumns = columns.filter((column) => !visibleColumns.includes(column));
+
+  if (remainingColumns.length) {
+    const addFilter = document.createElement('select');
+    addFilter.className = 'add-filter-select';
+    addFilter.value = '';
+
+    const addOption = document.createElement('option');
+    addOption.value = '';
+    addOption.textContent = '+ Add Filter';
+    addFilter.append(addOption);
+
+    remainingColumns.forEach((column) => {
+      const option = document.createElement('option');
+      option.value = column;
+      option.textContent = column;
+      addFilter.append(option);
+    });
+
+    elements.dataFilters.append(addFilter);
+  }
+}
+
+function renderDataTable(sheetStatistics) {
+  clearElement(elements.dataTableContainer);
+
+  const columns = sheetStatistics?.columns || [];
+  const rows = sheetStatistics?.rows || [];
+
+  if (!columns.length) {
+    elements.dataTableContainer.append(createTextElement('p', 'muted-text', 'No data found in this sheet.'));
+    return;
+  }
+
+  const tableWrap = document.createElement('div');
+  tableWrap.className = 'data-table-wrap';
+
+  const table = document.createElement('table');
+  table.className = 'data-table';
+
+  const columnWidths = getDataColumnWidths(columns, rows);
+  table.style.minWidth = `${columnWidths.reduce((total, width) => total + width, 0)}px`;
+
+  const columnGroup = document.createElement('colgroup');
+  columnWidths.forEach((width) => {
+    const tableColumn = document.createElement('col');
+    tableColumn.style.width = `${width}px`;
+    columnGroup.append(tableColumn);
+  });
+  table.append(columnGroup);
+
+  const thead = document.createElement('thead');
+  const headerRow = document.createElement('tr');
+
+  columns.forEach((column) => {
+    const headerCell = document.createElement('th');
+    headerCell.textContent = column;
+    headerRow.append(headerCell);
+  });
+
+  thead.append(headerRow);
+  table.append(thead);
+
+  const tbody = document.createElement('tbody');
+  rows.forEach((row) => {
+    const tableRow = document.createElement('tr');
+
+    columns.forEach((column) => {
+      const cell = document.createElement('td');
+      cell.textContent = formatDataValue(row[column]);
+      tableRow.append(cell);
+    });
+
+    tbody.append(tableRow);
+  });
+
+  table.append(tbody);
+  tableWrap.append(table);
+  elements.dataTableContainer.append(tableWrap);
+  applyDataFilters();
 }
 
 function destroyCharts() {
@@ -462,7 +763,9 @@ function renderChart(sheetStatistics, column) {
 
 function renderSelectedColumn() {
   const sheetStatistics = getActiveSheetStats();
-  clearElement(elements.selectedColumnStats);
+  clearElement(elements.dataFilters);
+  clearElement(elements.dataTableContainer);
+  elements.dataRowCount.textContent = '';
   destroyCharts();
 
   if (!sheetStatistics || !state.selectedColumn) {
@@ -480,15 +783,9 @@ function renderSelectedColumn() {
 
   elements.selectedColumnTitle.textContent = column;
 
-  if (details.type === 'numeric') {
-    renderNumericColumn(column, sheetStatistics.numericStats[column], details);
-  } else if (details.type === 'date') {
-    renderDateColumn(sheetStatistics.dateStats[column], details);
-  } else {
-    renderTextColumn(sheetStatistics.textStats[column], details);
-  }
-
   renderChart(sheetStatistics, column);
+  renderDataFilters(sheetStatistics);
+  renderDataTable(sheetStatistics);
   elements.selectedColumnPanel.classList.remove('hidden');
 }
 
@@ -500,11 +797,14 @@ function renderActiveSheet() {
   if (!sheetStatistics) {
     clearElement(elements.sheetTabs);
     clearElement(elements.columnsList);
+    clearElement(elements.dataTableContainer);
+    elements.dataSheetTitle.textContent = 'Details';
     elements.selectedColumnPanel.classList.add('hidden');
     return;
   }
 
   state.activeSheet = sheetStatistics.sheetName;
+  elements.dataSheetTitle.textContent = sheetStatistics.sheetName;
   renderSheetTabs();
   renderColumnButtons(sheetStatistics);
   renderSelectedColumn();
@@ -534,6 +834,8 @@ async function loadDashboard() {
     }
 
     state.selectedColumn = '';
+    state.columnFilters = {};
+    state.visibleFilterColumns = {};
     renderActiveSheet();
     elements.dashboardContent.classList.remove('hidden');
   } catch (error) {
@@ -600,6 +902,8 @@ async function handleUpload(event) {
     setMessage('Data updated successfully.', 'success');
     state.activeSheet = '';
     state.selectedColumn = '';
+    state.columnFilters = {};
+    state.visibleFilterColumns = {};
     await loadDashboard();
     closeUploadModal();
   } catch (error) {
@@ -632,6 +936,7 @@ function bindEvents() {
 
     state.activeSheet = button.dataset.sheet;
     state.selectedColumn = '';
+    getActiveFilters();
     renderActiveSheet();
   });
 
@@ -642,8 +947,55 @@ function bindEvents() {
     }
 
     state.selectedColumn = button.dataset.column;
+    setVisibleFilterColumns([state.selectedColumn]);
     renderColumnButtons(getActiveSheetStats());
     renderSelectedColumn();
+  });
+
+  elements.dataFilters.addEventListener('change', (event) => {
+    const select = event.target.closest('.filter-select');
+    if (!select) {
+      return;
+    }
+
+    const sheetStatistics = getActiveSheetStats();
+    const filters = getActiveFilters();
+    filters[select.dataset.column] = select.value;
+    renderDataFilters(sheetStatistics);
+    applyDataFilters();
+  });
+
+  elements.dataFilters.addEventListener('change', (event) => {
+    const select = event.target.closest('.add-filter-select');
+    if (!select || !select.value) {
+      return;
+    }
+
+    const sheetStatistics = getActiveSheetStats();
+    setVisibleFilterColumns([...getVisibleFilterColumns(sheetStatistics), select.value]);
+    renderDataFilters(sheetStatistics);
+    applyDataFilters();
+  });
+
+  elements.dataFilters.addEventListener('click', (event) => {
+    const button = event.target.closest('.remove-filter-button');
+    if (!button) {
+      return;
+    }
+
+    const sheetStatistics = getActiveSheetStats();
+    const filters = getActiveFilters();
+    delete filters[button.dataset.column];
+    setVisibleFilterColumns(getVisibleFilterColumns(sheetStatistics).filter((column) => column !== button.dataset.column));
+    renderDataFilters(sheetStatistics);
+    applyDataFilters();
+  });
+
+  elements.clearDataFilters.addEventListener('click', () => {
+    state.columnFilters[state.activeSheet] = {};
+    setVisibleFilterColumns(state.selectedColumn ? [state.selectedColumn] : []);
+    renderDataFilters(getActiveSheetStats());
+    applyDataFilters();
   });
 }
 

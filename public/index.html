@@ -36,32 +36,36 @@
 
         <section class="panel">
           <div class="section-heading">
-            <h2>Sheets</h2>
+            <h2>Details</h2>
           </div>
-          <div id="sheetTabs" class="sheet-tabs" role="tablist" aria-label="Excel sheets"></div>
+          <div id="sheetTabs" class="sheet-tabs" role="tablist" aria-label="Excel details"></div>
         </section>
 
         <section class="panel">
           <div class="section-heading">
-            <h2>Columns</h2>
+            <h2 id="dataSheetTitle">Details</h2>
           </div>
           <div id="columnsList" class="columns-list"></div>
-        </section>
-
-        <section id="selectedColumnPanel" class="panel hidden">
-          <div class="section-heading">
-            <h2 id="selectedColumnTitle">Column</h2>
-          </div>
-          <div id="selectedColumnStats" class="stats-grid"></div>
-          <div id="chartsGrid" class="charts-grid">
-            <article class="chart-card">
-              <h3 id="barChartTitle">Chart</h3>
-              <canvas id="barChartCanvas"></canvas>
-            </article>
-            <article class="chart-card">
-              <h3 id="doughnutChartTitle">Share</h3>
-              <canvas id="doughnutChartCanvas"></canvas>
-            </article>
+          <div id="selectedColumnPanel" class="column-detail-panel hidden">
+            <div class="section-heading compact-heading">
+              <h2 id="selectedColumnTitle">Column</h2>
+            </div>
+            <div id="chartsGrid" class="charts-grid">
+              <article class="chart-card">
+                <h3 id="barChartTitle">Chart</h3>
+                <canvas id="barChartCanvas"></canvas>
+              </article>
+              <article class="chart-card">
+                <h3 id="doughnutChartTitle">Share</h3>
+                <canvas id="doughnutChartCanvas"></canvas>
+              </article>
+            </div>
+            <div class="data-toolbar">
+              <p id="dataRowCount" class="data-row-count"></p>
+              <button id="clearDataFilters" class="secondary-button compact-button" type="button">Clear Filters</button>
+            </div>
+            <div id="dataFilters" class="data-filters"></div>
+            <div id="dataTableContainer" class="data-table-container"></div>
           </div>
         </section>
 

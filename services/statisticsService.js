@@ -259,6 +259,13 @@ function buildSheetStatistics(sheet) {
     range: sheet.range || '',
     headerRowNumber: sheet.headerRowNumber || null,
     rawRows: sheet.rawRows || [],
+    columns,
+    rows: rows.map((row) =>
+      columns.reduce((normalizedRow, column) => {
+        normalizedRow[column] = formatCellValue(row[column]);
+        return normalizedRow;
+      }, {})
+    ),
     fileInfo: {
       rowCount: rows.length,
       columnCount: columns.length
