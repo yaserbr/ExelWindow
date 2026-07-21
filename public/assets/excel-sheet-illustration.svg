@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Excel sheet illustration">
+  <defs>
+    <linearGradient id="page" x1="12" y1="8" x2="54" y2="58" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e8f7ee"/>
+    </linearGradient>
+    <linearGradient id="fold" x1="43" y1="9" x2="55" y2="23" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#d9f3e2"/>
+      <stop offset="1" stop-color="#a7dcbc"/>
+    </linearGradient>
+    <linearGradient id="badge" x1="12" y1="13" x2="28" y2="29" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#24a861"/>
+      <stop offset="1" stop-color="#0e5f36"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="5" stdDeviation="4" flood-color="#0e5f36" flood-opacity=".16"/>
+    </filter>
+  </defs>
+  <path fill="url(#page)" stroke="#198754" stroke-width="3" stroke-linejoin="round" filter="url(#softShadow)"
+        d="M14 6h29l13 13v35a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V10a4 4 0 0 1 4-4z"/>
+  <path fill="url(#fold)" stroke="#198754" stroke-width="3" stroke-linejoin="round"
+        d="M43 6v11a4 4 0 0 0 4 4h9z"/>
+  <rect x="14" y="14" width="15" height="15" rx="4" fill="url(#badge)"/>
+  <path d="m18.5 18.5 6 7m0-7-6 7" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round"/>
+  <rect x="17" y="36" width="33" height="14" rx="3" fill="#f7fffa" stroke="#4aa66f" stroke-width="2"/>
+  <path d="M17 41h33M17 46h33M25 36v14M33 36v14M41 36v14" fill="none" stroke="#77bd91" stroke-width="1.6"/>
+</svg>

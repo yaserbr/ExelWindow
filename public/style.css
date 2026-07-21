@@ -83,31 +83,29 @@ p {
 h1 {
   font-size: clamp(1.6rem, 3vw, 2.4rem);
   line-height: 1.15;
-  color: var(--primary-dark);
+  color: #0e5f36;
   font-weight: 900;
   display: inline-flex;
   align-items: center;
   gap: 12px;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.7);
+  background: none;
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  -webkit-text-fill-color: #0e5f36;
+  position: relative;
+  z-index: 1;
 }
 
-h1::before {
-  content: "X";
-  display: inline-grid;
-  place-items: center;
-  width: 42px;
-  height: 42px;
-  border: 1px solid rgba(255, 255, 255, 0.52);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.34), transparent 36%),
-    linear-gradient(160deg, #1f9d55, #107c41 55%, #064b31);
-  color: #ffffff;
+.header-icon {
+  width: 48px;
+  height: 48px;
+  flex: 0 0 48px;
+  border-radius: 10px;
+  object-fit: cover;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.46),
-    0 14px 34px rgba(16, 124, 65, 0.28);
-  font-size: 1.25rem;
-  font-weight: 900;
+    0 12px 28px rgba(6, 63, 43, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.58);
 }
 
 h2 {
@@ -160,6 +158,7 @@ h3 {
   background: linear-gradient(180deg, #21a366, #107c41 54%, #063f2b);
   box-shadow: 0 0 34px rgba(33, 163, 102, 0.65);
   pointer-events: none;
+  z-index: 0;
 }
 
 .page-header::after {
@@ -172,6 +171,7 @@ h3 {
   background: linear-gradient(100deg, transparent, rgba(255, 255, 255, 0.72), transparent);
   transform: rotate(18deg);
   pointer-events: none;
+  z-index: 0;
 }
 
 .primary-button,
