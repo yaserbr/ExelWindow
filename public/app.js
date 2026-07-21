@@ -37,7 +37,7 @@ const elements = {
   uploadButton: document.getElementById('uploadButton')
 };
 
-const chartColors = ['#1264d8', '#10a37f', '#4f46e5', '#0891b2', '#65a30d', '#dc2626'];
+const chartColors = ['#107c41', '#21a366', '#185c37', '#8bc34a', '#00a878', '#f4b942'];
 
 function formatNumber(value) {
   if (value === null || value === undefined || value === '') {
@@ -946,8 +946,11 @@ function bindEvents() {
       return;
     }
 
-    state.selectedColumn = button.dataset.column;
-    setVisibleFilterColumns([state.selectedColumn]);
+    const clickedColumn = button.dataset.column;
+    const shouldCloseColumn = state.selectedColumn === clickedColumn;
+
+    state.selectedColumn = shouldCloseColumn ? '' : clickedColumn;
+    setVisibleFilterColumns(state.selectedColumn ? [state.selectedColumn] : []);
     renderColumnButtons(getActiveSheetStats());
     renderSelectedColumn();
   });
