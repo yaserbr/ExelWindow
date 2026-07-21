@@ -12,6 +12,7 @@ const elements = {
   dashboardContent: document.getElementById('dashboardContent'),
   firstSheetPanel: document.getElementById('firstSheetPanel'),
   firstSheetTitle: document.getElementById('firstSheetTitle'),
+  lastUpdateTime: document.getElementById('lastUpdateTime'),
   firstSheetTables: document.getElementById('firstSheetTables'),
   sheetTabs: document.getElementById('sheetTabs'),
   columnsList: document.getElementById('columnsList'),
@@ -57,6 +58,22 @@ function formatDate(value) {
   }).format(dateValue);
 }
 
+function formatDateTime(value) {
+  if (!value) {
+    return '-';
+  }
+
+  const dateValue = new Date(value);
+  if (Number.isNaN(dateValue.getTime())) {
+    return '-';
+  }
+
+  return new Intl.DateTimeFormat('en-US', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(dateValue);
+}
+
 function clearElement(element) {
   element.replaceChildren();
 }
@@ -68,6 +85,25 @@ function createTextElement(tag, className, text) {
   }
   element.textContent = text;
   return element;
+}
+
+function formatSummaryTableCell(cell, columnLabel) {
+  const text = String(cell || '');
+  const normalizedLabel = String(columnLabel || '').trim().toLowerCase();
+
+  if (normalizedLabel === 'pass %' && text.trim() !== '') {
+    const numericValue = Number(text);
+
+    if (Number.isFinite(numericValue)) {
+      const percentValue = Math.abs(numericValue) <= 1 ? numericValue * 100 : numericValue;
+
+      return `${new Intl.NumberFormat('en-US', {
+        maximumFractionDigits: 1
+      }).format(percentValue)}%`;
+    }
+  }
+
+  return text;
 }
 
 function setMessage(text, type = 'success') {
@@ -169,6 +205,7 @@ function renderFirstSheet() {
   }
 
   elements.firstSheetTitle.textContent = firstSheet.sheetName;
+  elements.lastUpdateTime.textContent = `Last Update: ${formatDateTime(state.statistics?.updatedAt)}`;
 
   splitIntoTables(firstSheet.rawRows).forEach((sourceRows) => {
     const rows = compactTableRows(sourceRows);
@@ -186,14 +223,15 @@ function renderFirstSheet() {
 
     const table = document.createElement('table');
     table.className = 'mini-table';
+    const headerRow = tableRows[0] || [];
 
     tableRows.forEach((row, rowIndex) => {
       const tableRow = document.createElement('tr');
       const filledCells = row.filter((cell) => String(cell || '').trim() !== '').length;
 
-      row.forEach((cell) => {
+      row.forEach((cell, cellIndex) => {
         const cellElement = document.createElement(rowIndex === 0 && filledCells > 1 ? 'th' : 'td');
-        cellElement.textContent = String(cell || '');
+        cellElement.textContent = formatSummaryTableCell(cell, rowIndex > 0 ? headerRow[cellIndex] : '');
         tableRow.append(cellElement);
       });
 
